@@ -1,0 +1,43 @@
+⚡ Loading pre-transcribed cache from ravdess_cache.json...
+torch.Size([80000])
+calm
+ Dogs are sitting by the door.
+🔁 Loading tokenizer and dataset...
+⚡ Loading pre-transcribed cache from ravdess_cache.pkl...
+You are using a model of type hubert to instantiate a model of type wav2vec2. This is not supported for all configurations of models and can yield errors.
+Some weights of Wav2Vec2Model were not initialized from the model checkpoint at ntu-spml/distilhubert and are newly initialized: ['feature_projection.layer_norm.bias', 'feature_projection.layer_norm.weight']
+You should probably TRAIN this model on a down-stream task to be able to use it for predictions and inference.
+🔍 Running zero-shot inference on 2880 samples...
+
+🎯 Zero-Shot Inference Results:
+Total samples: 2880
+Accuracy (Audio only):  76.46%
+Accuracy (Text only):   17.78%
+Accuracy (Audio + Text): 70.49%
+
+🔍 Inspecting 5 random samples...
+
+Sample 1 | Transcript: ' Dogs are sitting by the door.' | Ground truth: disgust
+Prediction (audio + text): disgust
+Prediction (audio only): disgust
+Prediction (text only): calm
+
+Sample 2 | Transcript: ' Kids are talking by the door.' | Ground truth: angry
+Prediction (audio + text): fearful
+Prediction (audio only): fearful
+Prediction (text only): surprised
+
+Sample 3 | Transcript: ' Dogs are sitting by the door.' | Ground truth: calm
+Prediction (audio + text): calm
+Prediction (audio only): calm
+Prediction (text only): calm
+
+Sample 4 | Transcript: ' Dogs are sitting by the door.' | Ground truth: disgust
+Prediction (audio + text): disgust
+Prediction (audio only): disgust
+Prediction (text only): calm
+
+Sample 5 | Transcript: ' Kids are talking by the door.' | Ground truth: angry
+Prediction (audio + text): fearful
+Prediction (audio only): fearful
+Prediction (text only): surprised
