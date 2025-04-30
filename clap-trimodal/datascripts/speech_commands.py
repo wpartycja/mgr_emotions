@@ -6,9 +6,8 @@ from collections import defaultdict
 import random
 
 class SpeechCommandsText(Dataset):
-    def __init__(self, tokenizer: PreTrainedTokenizer, split="train", sample_rate=16000, max_len=128, samples_per_class=200):
+    def __init__(self, tokenizer: PreTrainedTokenizer, split="train", max_len=128, samples_per_class=200):
         self.tokenizer = tokenizer
-        self.sample_rate = sample_rate
         self.max_len = max_len
 
         self.original_dataset = load_dataset("speech_commands", "v0.01", split=split, trust_remote_code=True)
