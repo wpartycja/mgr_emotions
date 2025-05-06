@@ -1,5 +1,3 @@
-# Zero-shot inference using tri-modal CLAP: audio, text, or both vs. class descriptions
-
 import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -26,7 +24,7 @@ def main(cfg: DictConfig):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load tokenizer and dataset
-    print("🔁 Loading tokenizer and dataset...")
+    print("Loading tokenizer and dataset...")
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = SpeechCommandsText(tokenizer, split="test")
     idx2label = {v: k for k, v in test_dataset.group2idx.items()}
@@ -34,7 +32,7 @@ def main(cfg: DictConfig):
 
     # Encode class descriptions
     with torch.no_grad():
-        model = CLAPTriModal("DistilHuBERT", "DistilRoBERTa", d_proj=128, access_token=access_token).to(device)
+        model = CLAPTriModal(cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token).to(device)
         model.load_state_dict(torch.load(f"./weights/{cfg.datasets.model_output}", map_location=device))
         model.eval()
 
@@ -47,7 +45,7 @@ def main(cfg: DictConfig):
     correct_audio, correct_text, correct_both = 0, 0, 0
 
     total = len(test_dataset)
-    print("🔍 Running zero-shot inference on test set...")
+    print("Running zero-shot inference on test set...")
     for i in range(total):
         waveform, text_inputs, label = test_dataset[i]
         waveform = waveform.unsqueeze(0).to(device)
@@ -74,7 +72,7 @@ def main(cfg: DictConfig):
             pred_both = torch.argmax(sims_both, dim=1)
             correct_both += (pred_both == label).item()
 
-    print("\n🎯 Zero-Shot Inference Results:")
+    print("\nZero-Shot Inference Results:")
     print(f"Total samples: {total}")
     print(f"Accuracy (Audio only):  {100 * correct_audio / total:.2f}%")
     print(f"Accuracy (Text only):   {100 * correct_text / total:.2f}%")

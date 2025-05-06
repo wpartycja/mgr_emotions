@@ -14,9 +14,12 @@ from dotenv import load_dotenv
 import os
 import hydra
 from omegaconf import DictConfig, OmegaConf
+from datascripts.loader import get_dataset_and_collate
+
 
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
+
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -25,26 +28,20 @@ def main(cfg: DictConfig):
     
     
     # Initialize
-    print("🔁 Loading tokenizer and dataset...")
-    tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
-    # tokenizer = AutoModel.from_pretrained("distilroberta-base", token=access_token)
-    train_dataset = SpeechCommandsText(tokenizer, split="train", samples_per_class=512)
-    num_classes = len(train_dataset.group2idx)
-
-    # DataLoader
-    def collate_fn(batch):
-        audios, text_inputs, labels = zip(*batch)
-        audios = torch.stack(audios)
-        labels = torch.tensor(labels)
-        text_inputs = {key: torch.stack([x[key] for x in text_inputs]) for key in text_inputs[0]}
-
-        # Create class description text
-        label_texts = [f"This is the class: {train_dataset.group_labels[y]}" for y in labels]
-        class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64)
-
-        return audios, text_inputs, class_text_inputs
-
-    train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn)
+    print("Loading tokenizer and dataset...")
+    tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+    dataset, collate_fn = get_dataset_and_collate(cfg, tokenizer)
+    print("Dataset:", dataset)
+    print("Collate fn:", collate_fn)
+    print("Length:", len(dataset))
+    
+    
+    dataloader = DataLoader(
+        dataset,
+        batch_size=cfg.train.batch_size,
+        shuffle=True,
+        collate_fn=collate_fn
+    )
 
 
     # Model
@@ -66,7 +63,7 @@ def main(cfg: DictConfig):
         model.train()
         total_loss, total_audio_text, total_audio_class, total_text_class = 0, 0, 0, 0
 
-        for step, (audio, text_inputs, class_text_inputs) in enumerate(train_loader):
+        for step, (audio, text_inputs, class_text_inputs) in enumerate(dataloader):
             audio = audio.to(device)
             text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
             class_text_inputs = {k: v.to(device) for k, v in class_text_inputs.items()}
@@ -105,7 +102,7 @@ def main(cfg: DictConfig):
                 print(f"Step {step:03d} | Loss: {loss.item():.4f} | A↔T: {loss_audio_text.item():.4f} | A↔C: {loss_audio_class.item():.4f} | T↔C: {loss_text_class.item():.4f}")
                 print("Loss weights:", weights.tolist())
         scheduler.step()
-        avg_loss = total_loss / len(train_loader)
+        avg_loss = total_loss / len(dataloader)
         print(f"\n📘 Epoch {epoch+1}/{cfg.train.epochs} | Avg Loss: {avg_loss:.4f}\n")
 
     # Save model
