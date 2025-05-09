@@ -1,5 +1,4 @@
 import os
-import random
 import torch
 from dotenv import load_dotenv
 from transformers import RobertaTokenizer
@@ -13,7 +12,8 @@ from datascripts.prompt_utils import get_prompt
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
-def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
+
+def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
@@ -23,11 +23,15 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
         prompt = get_prompt(label, cfg)
         print(f"{label} ({idx}): {prompt}")
 
-    print("\nInspecting 5 random samples...")
-    test_indices = random.sample(range(len(test_dataset)), 5)
-    for i, idx in enumerate(test_indices):
-        sample = test_dataset[idx]
+    correct_audio = correct_text = correct_both = 0
+    total = len(test_dataset)
+    print(f"\nRunning zero-shot inference on {total} samples from {cfg.datasets.name.lower()}...")
+
+    for i in range(total):
+        sample = test_dataset[i]
         label = get_label(sample)
+        label_idx = torch.tensor([emotion2idx[label]]).to(device)
+
         waveform = get_waveform(sample).unsqueeze(0).to(device)
         transcript = get_transcript(sample)
 
@@ -38,20 +42,24 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
             z_audio = model.audio_encoder(waveform)
             z_text = model.input_text_encoder(text_inputs)
 
-            print(f"\nSample {i+1} | Transcript: '{transcript}' | Ground truth: {label}")
+            sims_audio = torch.matmul(z_audio, class_embeds.T)
+            pred_audio = torch.argmax(sims_audio, dim=1)
+            correct_audio += (pred_audio == label_idx).item()
+
+            sims_text = torch.matmul(z_text, class_embeds.T)
+            pred_text = torch.argmax(sims_text, dim=1)
+            correct_text += (pred_text == label_idx).item()
 
             z_avg = torch.nn.functional.normalize((z_audio + z_text) / 2, dim=-1)
             sims_both = torch.matmul(z_avg, class_embeds.T)
-            pred_both = torch.argmax(sims_both, dim=1).item()
-            print(f"Prediction (audio + text): {idx2emotion[pred_both]}")
+            pred_both = torch.argmax(sims_both, dim=1)
+            correct_both += (pred_both == label_idx).item()
 
-            sims_audio = torch.matmul(z_audio, class_embeds.T)
-            pred_audio = torch.argmax(sims_audio, dim=1).item()
-            print(f"Prediction (audio only): {idx2emotion[pred_audio]}")
-
-            sims_text = torch.matmul(z_text, class_embeds.T)
-            pred_text = torch.argmax(sims_text, dim=1).item()
-            print(f"Prediction (text only): {idx2emotion[pred_text]}")
+    print("\n🎯 Zero-Shot Inference Results:")
+    print(f"Total samples: {total}")
+    print(f"Accuracy (Audio only):  {100 * correct_audio / total:.2f}%")
+    print(f"Accuracy (Text only):   {100 * correct_text / total:.2f}%")
+    print(f"Accuracy (Audio + Text): {100 * correct_both / total:.2f}%")
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -62,8 +70,7 @@ def main(cfg: DictConfig):
     label_names = test_dataset.all_labels
     model, tokenizer, class_embeds, emotion2idx, idx2emotion, device = load_trained_model(cfg, label_names)
 
-    inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
+    evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
 
-if __name__ == "__main__":
-    main()
+main()
