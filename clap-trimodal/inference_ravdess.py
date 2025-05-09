@@ -5,7 +5,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import torch
 from transformers import RobertaTokenizer
-from datascripts.ravdess import RAVDESSDatasetWithASR
+from datascripts.ravdess import RAVDESSDatasetASR
 from model.clap_trimodal import CLAPTriModal
 import torch.nn.functional as F
 import random
@@ -41,7 +41,7 @@ labels_text = [label2text[emotion] for emotion in all_emotions]
 print("🔁 Loading tokenizer and dataset...")
 tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
 
-test_dataset = RAVDESSDatasetWithASR(
+test_dataset = RAVDESSDatasetASR(
     data_dir="/home/wpartycja/mgr-data-science/3sem/mgr_emotions/data/raw/ravdess",  
     preload_transcripts=True,
     save_cache=True,

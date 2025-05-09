@@ -1,6 +1,7 @@
 from datascripts.speech_commands import SpeechCommandsText, speech_collate_fn
 from datascripts.ravdess import RAVDESSDatasetASR, ravdess_collate_fn
 
+
 def get_dataset_and_collate(cfg, tokenizer):
     name = cfg.datasets.name.lower()
 
@@ -9,9 +10,8 @@ def get_dataset_and_collate(cfg, tokenizer):
         collate_fn = lambda batch: speech_collate_fn(batch, dataset, tokenizer)
     elif name == "ravdess":
         dataset = RAVDESSDatasetASR(
-            data_dir=cfg.paths.data_dir,
-            preload_transcripts=True,
-            cache_path=cfg.paths.cache_file
+            data_dir=cfg.datasets.data_dir,
+            cache_path=cfg.datasets.cache_file
         )
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
     else:

@@ -4,45 +4,38 @@ import os
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import torch
-import numpy as np
 from torch.utils.data import DataLoader
-from transformers import RobertaTokenizer, AutoModel
+from transformers import RobertaTokenizer
 from model.clap_trimodal import CLAPTriModal
 from model.contrastive_loss import clip_contrastive_loss
-from datascripts.speech_commands import SpeechCommandsText
 from dotenv import load_dotenv
-import os
 import hydra
 from omegaconf import DictConfig, OmegaConf
 from datascripts.loader import get_dataset_and_collate
 
-
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
-
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))  # Print full config for logging
     
-    
+
     # Initialize
     print("Loading tokenizer and dataset...")
-    tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+    tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     dataset, collate_fn = get_dataset_and_collate(cfg, tokenizer)
     print("Dataset:", dataset)
     print("Collate fn:", collate_fn)
     print("Length:", len(dataset))
-    
-    
+
     dataloader = DataLoader(
         dataset,
         batch_size=cfg.train.batch_size,
         shuffle=True,
         collate_fn=collate_fn
     )
-
 
     # Model
     print("Initializing model...")
@@ -55,7 +48,7 @@ def main(cfg: DictConfig):
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.max_temp)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
 
     # Training loop
     print("Starting training...")
@@ -69,7 +62,7 @@ def main(cfg: DictConfig):
             class_text_inputs = {k: v.to(device) for k, v in class_text_inputs.items()}
 
             out = model(audio=audio, input_text=text_inputs, class_text=class_text_inputs)
-
+    
             scale = out["contrastive_scale"]
             audio_embed = out["audio_embed"]
             text_embed = out["input_text_embed"]
@@ -109,5 +102,5 @@ def main(cfg: DictConfig):
     path = f"./weights/{cfg.datasets.model_output}"
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}")
-    
+
 main()
