@@ -3,7 +3,6 @@ data_dir: data/raw/ravdess
 cache_file: data/processed/ravdess_cache.pkl
 model_output: ravdess.pt
 samples_per_class: null
-split: train
 label2text:
   neutral: This speech expresses neutrality.
   calm: This speech sounds calm and peaceful.

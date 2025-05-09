@@ -2,26 +2,27 @@ from datascripts.speech_commands import SpeechCommandsText, speech_collate_fn
 from datascripts.ravdess import RAVDESSDatasetASR, ravdess_collate_fn
 
 
-def load_dataset(cfg, tokenizer):
+def get_dataset(cfg, tokenizer, split):
     name = cfg.datasets.name.lower()
 
     if name == "speech_commands":
         return SpeechCommandsText(
             tokenizer=tokenizer,
-            split=cfg.datasets.split,
+            split=split,
             samples_per_class=cfg.datasets.samples_per_class
         )
     elif name == "ravdess":
         return RAVDESSDatasetASR(
             data_dir=cfg.datasets.data_dir,
-            cache_path=cfg.datasets.cache_file
+            cache_path=cfg.datasets.cache_file,
+            split=split,
         )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
 
-def load_dataset_and_collate_fn(cfg, tokenizer):
-    dataset = load_dataset(cfg, tokenizer)
+def get_dataset_and_collate_fn(cfg, tokenizer, split="train"):
+    dataset = get_dataset(cfg, tokenizer, split)
     name = cfg.datasets.name.lower()
 
     if name == "speech_commands":

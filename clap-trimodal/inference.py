@@ -6,8 +6,8 @@ from transformers import RobertaTokenizer
 from omegaconf import DictConfig, OmegaConf
 import hydra
 
-from load_trained_model import load_trained_model
-from datascripts.loader import load_dataset
+from load_trained_model import load_trained_model, load_class_embeds
+from datascripts.loader import get_dataset
 from datascripts.prompt_utils import get_prompt
 
 load_dotenv()
@@ -58,9 +58,10 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
 def main(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
-    test_dataset = load_dataset(cfg, tokenizer)
+    test_dataset = get_dataset(cfg, tokenizer, "test")
     label_names = test_dataset.all_labels
-    model, tokenizer, class_embeds, emotion2idx, idx2emotion, device = load_trained_model(cfg, label_names)
+    model, tokenizer, device = load_trained_model(cfg)
+    class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
 
     inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
 

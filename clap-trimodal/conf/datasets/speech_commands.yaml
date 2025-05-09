@@ -3,5 +3,4 @@ data_dir: null
 cache_file: null
 model_output: speech_commands.pt
 samples_per_class: 200
-split: "train"
 prompt_template: "{label}"

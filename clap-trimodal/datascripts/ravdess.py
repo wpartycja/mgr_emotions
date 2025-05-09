@@ -18,6 +18,9 @@ class RAVDESSDatasetASR(Dataset):
         self,
         data_dir,
         cache_path,
+        split,
+        train_rate=0.8, 
+        eval_rate=0.1,
         sample_rate=16000,
         max_length=5
 ):
@@ -25,7 +28,10 @@ class RAVDESSDatasetASR(Dataset):
         self.sample_rate = sample_rate
         self.max_length = max_length
         self.cache_path = cache_path # to save or to load from
-
+        self.split = split
+        self.train_rate = train_rate
+        self.eval_rate = eval_rate
+        
         self.filepaths = []
         self.labels = []
 
@@ -57,6 +63,25 @@ class RAVDESSDatasetASR(Dataset):
                         if emotion_label is not None:
                             self.filepaths.append(os.path.join(root, file))
                             self.labels.append(emotion_label)
+
+        # Apply split after collection
+        data = list(zip(self.filepaths, self.labels))
+        data.sort()  # Ensure deterministic order
+        total = len(data)
+        train_end = int(self.train_rate * total)
+        val_end = int((self.train_rate + self.eval_rate) * total)
+
+        if self.split == "train":
+            data = data[:train_end]
+        elif self.split == "validation":
+            data = data[train_end:val_end]
+        elif self.split == "test":
+            data = data[val_end:]
+        else:
+            raise ValueError(f"Unknown split: {self.split}")
+
+        self.filepaths, self.labels = zip(*data)
+
 
     def __len__(self):
         return len(self.filepaths)
