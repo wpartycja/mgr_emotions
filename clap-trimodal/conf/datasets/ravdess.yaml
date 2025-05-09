@@ -1,6 +1,6 @@
 name: Ravdess
 data_dir: data/raw/ravdess
-cache_file: data/processed/ravdess_cache1.pkl
+cache_file: data/processed/ravdess_cache.pkl
 model_output: ravdess.pt
 samples_per_class: null
 split: train

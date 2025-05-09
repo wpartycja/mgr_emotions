@@ -40,9 +40,11 @@ class RAVDESSDatasetASR(Dataset):
             7: "disgust",
             8: "surprised",
         }
+        
+        self.all_labels = sorted(self.emotion_map.values())
 
         self._collect_files()
-        self.__transcribe()
+        self._transcribe()
 
     def _collect_files(self):
         for root, _, files in os.walk(self.data_dir):
@@ -64,34 +66,27 @@ class RAVDESSDatasetASR(Dataset):
         label = self.labels[idx]
 
         waveform, sr = torchaudio.load(filepath)
-
         if sr != self.sample_rate:
-            waveform = torchaudio.transforms.Resample(
-                orig_freq=sr, new_freq=self.sample_rate
-            )(waveform)
+            waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)(waveform)
 
         if waveform.size(0) > 1:
             waveform = waveform.mean(dim=0, keepdim=True)
 
         target_length = self.sample_rate * self.max_length
         if waveform.size(1) < target_length:
-            padding = target_length - waveform.size(1)
-            waveform = torch.nn.functional.pad(waveform, (0, padding))
+            waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.size(1)))
         else:
             waveform = waveform[:, :target_length]
 
-        if self.preload_transcripts:
-            transcript = self.transcripts[idx]
-        else:
-            transcript = self.transcribe(filepath)
+        transcript = self.transcripts[idx]
 
         return waveform.squeeze(0), label, transcript
     
-    def __transcribe_from_path(self, path):
+    def _transcribe_from_path(self, path):
         result = self.asr_pipeline(path, return_timestamps=False)
         return result["text"]
     
-    def __transcribe(self):
+    def _transcribe(self):
         if os.path.exists(self.cache_path):
             print(f"Loading pre-transcribed cache from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
@@ -104,7 +99,7 @@ class RAVDESSDatasetASR(Dataset):
             print("Preloading transcripts with progress bar...")
             self.transcripts = []
             for path in tqdm(self.filepaths, desc="Transcribing audio"):
-                transcript = self.__transcribe_from_path(path)
+                transcript = self._transcribe_from_path(path)
                 self.transcripts.append(transcript)
 
             if self.cache_path:

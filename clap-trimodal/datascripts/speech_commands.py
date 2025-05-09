@@ -23,8 +23,8 @@ class SpeechCommandsText(Dataset):
         }
         
         self.label_to_group = self.__get_label_to_group()
-        self.group_labels = sorted(self.class_map.keys())
-        self.group2idx = {group: i for i, group in enumerate(self.group_labels)}
+        self.all_labels = sorted(self.class_map.keys())
+        self.group2idx = {group: i for i, group in enumerate(self.all_labels)}
         self.filtered_dataset = self.__get_filtered_dataset(self.__get_grouped_data())
 
        
@@ -42,18 +42,8 @@ class SpeechCommandsText(Dataset):
 
         word = self.original_dataset.features['label'].int2str(item['label'])
         group = self.label_to_group[word]
-        group_id = self.group2idx[group]
 
-        text_inputs = self.tokenizer(
-            word,
-            return_tensors="pt",
-            padding="max_length",
-            truncation=True,
-            max_length=self.max_len,
-        )
-        text_inputs = {k: v.squeeze(0) for k, v in text_inputs.items()}
-
-        return waveform, text_inputs, group_id
+        return waveform, group, word
 
     def __get_label_to_group(self):
         label_to_group = {}
