@@ -1,6 +1,6 @@
 name: Speech_Commands
 data_dir: null
 cache_file: data/processed/speech_commands_cache_200.pkl
-model_output: speech_commands.pt
+model_output: clap_trimodal_commands.pt
 samples_per_class: 200
 prompt_template: "This is the class: {label}"

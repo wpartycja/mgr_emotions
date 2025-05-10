@@ -1,0 +1,14 @@
+name: Ravdess
+data_dir: data/raw/ravdess
+cache_file: data/processed/ravdess_cache.pkl
+model_output: ravdess_custom.pt
+samples_per_class: null
+label2text:
+  neutral: "This speech expresses neutrality."
+  calm: "This speech sounds calm and peaceful."
+  happy: "This speech sounds happy and joyful."
+  sad: "This speech expresses sadness."
+  angry: "This speech sounds angry."
+  fearful: "This speech expresses fear."
+  disgust: "This speech conveys disgust."
+  surprised: "This speech sounds surprised."

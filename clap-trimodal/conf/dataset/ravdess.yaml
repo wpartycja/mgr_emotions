@@ -1,6 +1,6 @@
 name: Ravdess
 data_dir: data/raw/ravdess
 cache_file: data/processed/ravdess_cache.pkl
-model_output: ravdess-bn.pt
+model_output: ravdess.pt
 samples_per_class: null
-prompt_template: "This speech expresses {label}."
+prompt_template: "This speech expresses: {label}."
