@@ -5,32 +5,54 @@ from transformers import PreTrainedTokenizer
 from collections import defaultdict
 import random
 
+from datasets import load_dataset
+import torch
+from torch.utils.data import Dataset
+from transformers import PreTrainedTokenizer
+from collections import defaultdict
+import random
 
 class SpeechCommandsText(Dataset):
-    def __init__(self, tokenizer: PreTrainedTokenizer, split="train", max_len=128, samples_per_class=200):
+    def __init__(
+        self,
+        tokenizer: PreTrainedTokenizer,
+        split="train",
+        max_len=128,
+        train_samples_per_class=512,
+        train_rate=0.8,
+        eval_rate=0.1,
+        seed=42,
+    ):
+
         self.tokenizer = tokenizer
         self.max_len = max_len
-        self.samples_per_class = samples_per_class
+        self.split = split
+        self.seed = seed
+        self.train_rate = train_rate
+        self.eval_rate = eval_rate
 
-        self.original_dataset = load_dataset("speech_commands", "v0.01", split=split, trust_remote_code=True)
+        # Calculate total samples per group needed
+        self.desired_train_samples_per_class = train_samples_per_class
+        self.total_samples_per_class = int(train_samples_per_class / train_rate)
 
-        # Define class groupings
+        self.original_dataset = load_dataset("speech_commands", "v0.01", split="train", trust_remote_code=True)
+
         self.class_map = {
             "numbers": ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"],
             "answer": ["yes", "no"],
             "directions": ["up", "down", "left", "right"],
-            "animals": ["bird", "cat", "dog"]
+            "animals": ["bird", "cat", "dog"],
         }
-        
+
         self.label_to_group = self.__get_label_to_group()
         self.all_labels = sorted(self.class_map.keys())
         self.group2idx = {group: i for i, group in enumerate(self.all_labels)}
-        self.filtered_dataset = self.__get_filtered_dataset(self.__get_grouped_data())
 
-       
+        self.filtered_dataset = self.__build_split_dataset()
+
     def __len__(self):
         return len(self.filtered_dataset)
-
+    
     def __getitem__(self, idx):
         item = self.filtered_dataset[idx]
         waveform = torch.tensor(item['audio']['array'], dtype=torch.float32)
@@ -42,49 +64,80 @@ class SpeechCommandsText(Dataset):
 
         word = self.original_dataset.features['label'].int2str(item['label'])
         group = self.label_to_group[word]
+        group_id = self.group2idx[group]
 
-        return waveform, group, word
+        if self.split == "train":
+            text_inputs = self.tokenizer(
+                word,
+                return_tensors="pt",
+                padding="max_length",
+                truncation=True,
+                max_length=self.max_len,
+            )
+            text_inputs = {k: v.squeeze(0) for k, v in text_inputs.items()}
+            return waveform, text_inputs, group_id
+
+        elif self.split == "validation":
+            return waveform, group, word  # what your evaluate() expects
 
     def __get_label_to_group(self):
-        label_to_group = {}
-        for group, words in self.class_map.items():
-            for w in words:
-                label_to_group[w] = group
-        return label_to_group
-    
+        return {word: group for group, words in self.class_map.items() for word in words}
+
     def __get_grouped_data(self):
-        grouped_data = defaultdict(list)
+        grouped = defaultdict(list)
         for item in self.original_dataset:
             word = self.original_dataset.features['label'].int2str(item['label'])
             if word in self.label_to_group:
-                grouped_data[self.label_to_group[word]].append(item)
-        return grouped_data
+                group = self.label_to_group[word]
+                grouped[group].append(item)
+        return grouped
 
-    def __get_filtered_dataset(self, grouped_data):
-        # Balance the dataset by sampling equal number per group
-        filtered_dataset = []
+    def __build_split_dataset(self):
+        grouped_data = self.__get_grouped_data()
+        split_data = []
+        rng = random.Random(self.seed)
+
         for group, items in grouped_data.items():
-            if len(items) >= self.samples_per_class:
-                sampled = random.sample(items, self.samples_per_class)
+            # Sample a fixed number of items per group
+            if len(items) < self.total_samples_per_class:
+                print(f"Group '{group}' has only {len(items)} samples (needed {self.total_samples_per_class}). Using all.")
+                sampled = items
             else:
-                sampled = items  # use all if not enough
-            filtered_dataset.extend(sampled)
-        return filtered_dataset
+                sampled = rng.sample(items, self.total_samples_per_class)
 
-def speech_collate_fn(batch, tokenizer, cfg):
-    audios, labels, text_inputs = zip(*batch)
+            rng.shuffle(sampled)
+
+            n_total = len(sampled)
+            n_train = int(self.train_rate * n_total)
+            n_val = int(self.eval_rate * n_total)
+
+            if self.split == "train":
+                group_items = sampled[:n_train]
+            elif self.split == "validation":
+                group_items = sampled[n_train:n_train + n_val]
+            elif self.split == "test":
+                group_items = sampled[n_train + n_val:]
+            else:
+                raise ValueError("Unknown split")
+
+            split_data.extend(group_items)
+
+        return split_data
+
+
+def speech_collate_fn(batch, tokenizer, cfg, dataset):
+    audios, text_inputs, labels = zip(*batch)
     audios = torch.stack(audios)
+    labels = torch.tensor(labels)
 
-    text_inputs = tokenizer(list(text_inputs), return_tensors="pt", padding=True, truncation=True)
-    text_inputs = {key: val for key, val in text_inputs.items()}
+    text_inputs = {key: torch.stack([x[key] for x in text_inputs]) for key in text_inputs[0]}
 
-   
-    # Use the prompt template from Hydra config
-    prompt_template = cfg.datasets.prompt_template
-    label_texts = [prompt_template.format(label=label) for label in labels]
+    # Get label names from dataset (not cfg!)
+    label_names = dataset.all_labels
+    label_texts = [cfg.datasets.prompt_template.format(label=label_names[y]) for y in labels]
 
     class_text_inputs = tokenizer(
         label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64
     )
 
-    return audios, class_text_inputs, text_inputs
+    return audios, text_inputs, class_text_inputs

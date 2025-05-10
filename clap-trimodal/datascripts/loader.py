@@ -9,7 +9,7 @@ def get_dataset(cfg, tokenizer, split):
         return SpeechCommandsText(
             tokenizer=tokenizer,
             split=split,
-            samples_per_class=cfg.datasets.samples_per_class
+            train_samples_per_class=cfg.datasets.samples_per_class
         )
     elif name == "ravdess":
         return RAVDESSDatasetASR(
@@ -26,7 +26,7 @@ def get_dataset_and_collate_fn(cfg, tokenizer, split="train"):
     name = cfg.datasets.name.lower()
 
     if name == "speech_commands":
-        collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg)
+        collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg, dataset)
     elif name == "ravdess":
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
     else:
