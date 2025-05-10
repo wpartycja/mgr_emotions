@@ -1,14 +1,15 @@
 import os
 import random
 import torch
-from dotenv import load_dotenv
-from transformers import RobertaTokenizer
-from omegaconf import DictConfig, OmegaConf
 import hydra
 
-from load_trained_model import load_trained_model, load_class_embeds
-from datascripts.loader import get_dataset
-from datascripts.prompt_utils import get_prompt
+from transformers import RobertaTokenizer
+from omegaconf import DictConfig, OmegaConf
+
+from dotenv import load_dotenv
+from model_loader import load_trained_model, load_class_embeds
+from datascripts.dataset_loader import get_dataset
+
 
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
@@ -18,12 +19,7 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
 
-    print("\nClass Descriptions:")
-    for label, idx in emotion2idx.items():
-        prompt = get_prompt(label, cfg)
-        print(f"{label} ({idx}): {prompt}")
-
-    print("\nInspecting 5 random samples...")
+    print("Inspecting 5 random samples...")
     test_indices = random.sample(range(len(test_dataset)), 5)
     for i, idx in enumerate(test_indices):
         sample = test_dataset[idx]

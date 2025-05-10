@@ -1,8 +1,10 @@
-from model.clap_trimodal import CLAPTriModal
-from transformers import RobertaTokenizer
-from datascripts.prompt_utils import get_prompt
-import torch
 import os
+import torch
+
+from transformers import RobertaTokenizer
+
+from model.clap_trimodal import CLAPTriModal
+from datascripts.prompt_utils import get_prompt
 from dotenv import load_dotenv
 
 load_dotenv()

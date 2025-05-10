@@ -1,6 +1,4 @@
 from transformers import RobertaModel, AutoModel
-import torch.nn as nn
-import torch.nn.functional as F
 
 def get_text_encoder(name: str, access_token: str):
     if name == "RoBERTA":

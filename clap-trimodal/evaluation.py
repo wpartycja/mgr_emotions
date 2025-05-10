@@ -1,12 +1,13 @@
 import os
 import torch
-from dotenv import load_dotenv
-from transformers import RobertaTokenizer
-from omegaconf import DictConfig, OmegaConf
 import hydra
 
-from load_trained_model import load_trained_model, load_class_embeds
-from datascripts.loader import get_dataset
+from transformers import RobertaTokenizer
+from omegaconf import DictConfig
+
+from dotenv import load_dotenv
+from model_loader import load_trained_model, load_class_embeds
+from datascripts.dataset_loader import get_dataset
 from datascripts.prompt_utils import get_prompt
 
 load_dotenv()

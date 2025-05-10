@@ -1,18 +1,14 @@
-from datasets import load_dataset
+import os
 import torch
-from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizer
-from collections import defaultdict
+import pickle
 import random
 
-from datasets import load_dataset
-import torch
-from torch.utils.data import Dataset
-from transformers import PreTrainedTokenizer
 from collections import defaultdict
-import random
-import os
-import pickle
+from transformers import PreTrainedTokenizer
+from torch.utils.data import Dataset
+
+from datasets import load_dataset
+
 
 class SpeechCommandsText(Dataset):
     def __init__(
@@ -94,6 +90,7 @@ class SpeechCommandsText(Dataset):
 
     def _load_or_prepare_dataset(self):
         if self.cache_path and os.path.exists(self.cache_path):
+            print(f"Loading pre-transcribed cache from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
                 full_dataset = pickle.load(f)
         else:

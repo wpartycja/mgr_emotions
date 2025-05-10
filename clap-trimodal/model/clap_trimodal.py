@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from model.audio_encoder import get_audio_encoder
 from model.text_encoder import get_text_encoder
 
