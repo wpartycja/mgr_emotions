@@ -10,26 +10,16 @@ from tqdm import tqdm
 from datascripts.prompt_utils import get_prompt
 
 
-
 class RAVDESSDatasetASR(Dataset):
-    def __init__(
-        self,
-        data_dir,
-        cache_path,
-        split,
-        train_rate=0.8, 
-        eval_rate=0.1,
-        sample_rate=16000,
-        max_length=5
-):
+    def __init__(self, data_dir, cache_path, split, train_rate=0.8, eval_rate=0.1, sample_rate=16000, max_length=5):
         self.data_dir = data_dir
         self.sample_rate = sample_rate
         self.max_length = max_length
-        self.cache_path = cache_path # to save or to load from
+        self.cache_path = cache_path  # to save or to load from
         self.split = split
         self.train_rate = train_rate
         self.eval_rate = eval_rate
-        
+
         self.filepaths = []
         self.labels = []
 
@@ -44,7 +34,7 @@ class RAVDESSDatasetASR(Dataset):
             7: "disgust",
             8: "surprised",
         }
-        
+
         self.all_labels = sorted(self.emotion_map.values())
 
         self._collect_files()
@@ -80,7 +70,6 @@ class RAVDESSDatasetASR(Dataset):
 
         self.filepaths, self.labels = zip(*data)
 
-
     def __len__(self):
         return len(self.filepaths)
 
@@ -104,20 +93,18 @@ class RAVDESSDatasetASR(Dataset):
         transcript = self.transcripts[idx]
 
         return waveform.squeeze(0), label, transcript
-    
+
     def _transcribe_from_path(self, path):
         result = self.asr_pipeline(path, return_timestamps=False)
         return result["text"]
-    
+
     def _transcribe(self):
         if os.path.exists(self.cache_path):
             print(f"Loading pre-transcribed cache from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
                 self.transcripts = pickle.load(f)
         else:
-            self.asr_pipeline = pipeline(
-                "automatic-speech-recognition", model="openai/whisper-tiny.en"
-            )
+            self.asr_pipeline = pipeline("automatic-speech-recognition", model="openai/whisper-tiny.en")
 
             print("Preloading transcripts with progress bar...")
             self.transcripts = []

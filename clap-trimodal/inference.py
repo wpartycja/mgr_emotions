@@ -14,6 +14,7 @@ from datascripts.dataset_loader import get_dataset
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
+
 def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
@@ -51,7 +52,7 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def main(cfg: DictConfig):
+def run_inference(cfg: DictConfig):
     print(OmegaConf.to_yaml(cfg))
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")
@@ -63,4 +64,4 @@ def main(cfg: DictConfig):
 
 
 if __name__ == "__main__":
-    main()
+    run_inference()

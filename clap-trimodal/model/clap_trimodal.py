@@ -19,8 +19,14 @@ class Projection(nn.Module):
         embed2 = self.drop(self.linear2(F.gelu(embed1)))
         return self.layer_norm(embed1 + embed2)
 
+
 class AudioEncoder(nn.Module):
-    def __init__(self, audioenc_name: str, access_token: str, d_out: int, ):
+    def __init__(
+        self,
+        audioenc_name: str,
+        access_token: str,
+        d_out: int,
+    ):
         super().__init__()
         self.base = get_audio_encoder(audioenc_name)(access_token)
         d_in = self.base.output_dim
@@ -28,9 +34,10 @@ class AudioEncoder(nn.Module):
 
     def forward(self, x):
         out_dict = self.base(x)
-        features = out_dict['embedding']
+        features = out_dict["embedding"]
         projected = self.projection(features)
         return F.normalize(projected, dim=-1)
+
 
 class TextEncoder(nn.Module):
     def __init__(self, textenc_name: str, access_token: str, d_out: int, transformer_embed_dim: int = 768):
@@ -44,12 +51,9 @@ class TextEncoder(nn.Module):
         projected = self.projection(cls_token)
         return F.normalize(projected, dim=-1)
 
+
 class CLAPTriModal(nn.Module):
-    def __init__(self,
-                 audioenc_name: str,
-                 textenc_name: str,
-                 d_proj: int,
-                 access_token: str):
+    def __init__(self, audioenc_name: str, textenc_name: str, d_proj: int, access_token: str):
         super().__init__()
         self.audio_encoder = AudioEncoder(audioenc_name, access_token, d_proj)
         self.input_text_encoder = TextEncoder(textenc_name, access_token, d_proj)
@@ -67,8 +71,8 @@ class CLAPTriModal(nn.Module):
         contrastive_scale = torch.clamp(self.logit_scale.exp(), self.min_temp, self.max_temp)
 
         return {
-            'audio_embed': audio_embed,
-            'input_text_embed': input_text_embed,
-            'class_text_embed': class_text_embed,
-            'contrastive_scale': contrastive_scale
+            "audio_embed": audio_embed,
+            "input_text_embed": input_text_embed,
+            "class_text_embed": class_text_embed,
+            "contrastive_scale": contrastive_scale,
         }

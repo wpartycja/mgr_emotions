@@ -52,15 +52,15 @@ class SpeechCommandsText(Dataset):
 
     def __getitem__(self, idx):
         item = self.filtered_dataset[idx]
-        waveform = torch.tensor(item['audio']['array'], dtype=torch.float32)
+        waveform = torch.tensor(item["audio"]["array"], dtype=torch.float32)
 
         if waveform.size(0) < 16000:
             waveform = torch.nn.functional.pad(waveform, (0, 16000 - waveform.size(0)))
         else:
             waveform = waveform[:16000]
 
-        word = item['word']
-        group = item['group']
+        word = item["word"]
+        group = item["group"]
         group_id = self.group2idx[group]
 
         if self.split == "train":
@@ -82,7 +82,7 @@ class SpeechCommandsText(Dataset):
     def __get_grouped_data(self, dataset):
         grouped = defaultdict(list)
         for item in dataset:
-            word = dataset.features['label'].int2str(item['label'])
+            word = dataset.features["label"].int2str(item["label"])
             if word in self.label_to_group:
                 group = self.label_to_group[word]
                 grouped[group].append({**item, "word": word, "group": group})
@@ -102,7 +102,9 @@ class SpeechCommandsText(Dataset):
 
             for group, items in grouped_data.items():
                 if len(items) < self.total_samples_per_class:
-                    print(f"Group '{group}' has only {len(items)} samples (needed {self.total_samples_per_class}). Using all.")
+                    print(
+                        f"Group '{group}' has only {len(items)} samples (needed {self.total_samples_per_class}). Using all."
+                    )
                     sampled = items
                 else:
                     sampled = rng.sample(items, self.total_samples_per_class)
@@ -134,9 +136,9 @@ class SpeechCommandsText(Dataset):
             if self.split == "train":
                 group_items = items[:n_train]
             elif self.split == "validation":
-                group_items = items[n_train:n_train + n_val]
+                group_items = items[n_train : n_train + n_val]
             elif self.split == "test":
-                group_items = items[n_train + n_val:]
+                group_items = items[n_train + n_val :]
             else:
                 raise ValueError(f"Unknown split: {self.split}")
 
@@ -156,8 +158,6 @@ def speech_collate_fn(batch, tokenizer, cfg, dataset):
     label_names = dataset.all_labels
     label_texts = [cfg.datasets.prompt_template.format(label=label_names[y]) for y in labels]
 
-    class_text_inputs = tokenizer(
-        label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64
-    )
+    class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64)
 
     return audios, text_inputs, class_text_inputs

@@ -13,6 +13,7 @@ from datascripts.prompt_utils import get_prompt
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
+
 def print_class_descriptions(cfg, emotion2idx):
     print("\nClass Descriptions:")
     for label, idx in emotion2idx.items():
@@ -57,7 +58,9 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
             correct_both += (pred_both == label_idx).item()
 
     print(f"Accuracy:")
-    print(f"Audio + Text: {100 * correct_both / total:.2f}% | Audio only: {100 * correct_audio / total:.2f}% | Text only: {100 * correct_text / total:.2f}%  ")
+    print(
+        f"Audio + Text: {100 * correct_both / total:.2f}% | Audio only: {100 * correct_audio / total:.2f}% | Text only: {100 * correct_text / total:.2f}%  "
+    )
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -71,6 +74,7 @@ def run_evaluation(cfg: DictConfig):
     print_class_descriptions(cfg, emotion2idx)
     print(f"\nEvaluating on {len(test_dataset)} samples from {cfg.datasets.name.lower()}...")
     evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
+
 
 if __name__ == "__main__":
     run_evaluation()

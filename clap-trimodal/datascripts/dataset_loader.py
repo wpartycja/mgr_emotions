@@ -10,7 +10,7 @@ def get_dataset(cfg, tokenizer, split):
             tokenizer=tokenizer,
             split=split,
             train_samples_per_class=cfg.datasets.samples_per_class,
-            cache_path=cfg.datasets.cache_file
+            cache_path=cfg.datasets.cache_file,
         )
     elif name == "ravdess":
         return RAVDESSDatasetASR(

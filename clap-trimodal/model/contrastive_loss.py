@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 
+
 def clip_contrastive_loss(x_embed, y_embed, temperature, device):
     if x_embed is None or y_embed is None:
         return torch.tensor(0.0, device=device)
