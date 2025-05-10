@@ -26,7 +26,6 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
 
     correct_audio = correct_text = correct_both = 0
     total = len(test_dataset)
-    print(f"\nRunning zero-shot inference on {total} samples from {cfg.datasets.name.lower()}...")
 
     for i in range(total):
         sample = test_dataset[i]
@@ -56,12 +55,8 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
             pred_both = torch.argmax(sims_both, dim=1)
             correct_both += (pred_both == label_idx).item()
 
-    print("\n🎯 Zero-Shot Inference Results:")
-    print(f"Total samples: {total}")
-    print(f"Accuracy (Audio only):  {100 * correct_audio / total:.2f}%")
-    print(f"Accuracy (Text only):   {100 * correct_text / total:.2f}%")
-    print(f"Accuracy (Audio + Text): {100 * correct_both / total:.2f}%")
-
+    print(f"Accuracy:")
+    print(f"Audio + Text: {100 * correct_both / total:.2f}% | Audio only: {100 * correct_audio / total:.2f}% | Text only: {100 * correct_text / total:.2f}%  ")
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -73,6 +68,7 @@ def run_evaluation(cfg: DictConfig):
     class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
 
     print_class_descriptions(cfg, emotion2idx)
+    print(f"\nEvaluating on {len(test_dataset)} samples from {cfg.datasets.name.lower()}...")
     evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
 if __name__ == "__main__":
