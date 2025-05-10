@@ -2,26 +2,40 @@ import os
 import torch
 import hydra
 
-from transformers import RobertaTokenizer
+from transformers import RobertaTokenizer, PreTrainedTokenizer, PreTrainedModel
 from omegaconf import DictConfig
+from typing import Dict
+from torch import Tensor
+from torch.utils.data import Dataset
 
 from dotenv import load_dotenv
 from model_loader import load_trained_model, load_class_embeds
 from datascripts.dataset_loader import get_dataset
 from datascripts.prompt_utils import get_prompt
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-def print_class_descriptions(cfg, emotion2idx):
+def print_class_descriptions(cfg: DictConfig, emotion2idx: Dict[str, int]) -> None:
     print("\nClass Descriptions:")
     for label, idx in emotion2idx.items():
         prompt = get_prompt(label, cfg)
         print(f"{label} ({idx}): {prompt}")
 
 
-def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
+def evaluate(
+    cfg: DictConfig,
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    test_dataset: Dataset,
+    class_embeds: Tensor,
+    emotion2idx: Dict[str, int],
+    idx2emotion: Dict[int, str],
+    device: torch.device,
+) -> None:
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
@@ -64,7 +78,7 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def run_evaluation(cfg: DictConfig):
+def run_evaluation(cfg: DictConfig) -> None:
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")
     label_names = test_dataset.all_labels

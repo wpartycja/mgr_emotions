@@ -6,12 +6,26 @@ import pickle
 from transformers import pipeline
 from torch.utils.data import Dataset
 from tqdm import tqdm
+from typing import List, Tuple, Dict
+from transformers import PreTrainedTokenizer
+from omegaconf import DictConfig
 
 from datascripts.prompt_utils import get_prompt
 
 
 class RAVDESSDatasetASR(Dataset):
-    def __init__(self, data_dir, cache_path, split, train_rate=0.8, eval_rate=0.1, sample_rate=16000, max_length=5):
+    """Ravdess Dataset with two modalities: audio and text."""
+
+    def __init__(
+        self,
+        data_dir: str,
+        cache_path: str,
+        split: str,
+        train_rate: float = 0.8,
+        eval_rate: float = 0.1,
+        sample_rate: int = 16000,
+        max_length: int = 5,
+    ):
         self.data_dir = data_dir
         self.sample_rate = sample_rate
         self.max_length = max_length
@@ -70,10 +84,10 @@ class RAVDESSDatasetASR(Dataset):
 
         self.filepaths, self.labels = zip(*data)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.filepaths)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, str, str]:
         filepath = self.filepaths[idx]
         label = self.labels[idx]
 
@@ -94,11 +108,11 @@ class RAVDESSDatasetASR(Dataset):
 
         return waveform.squeeze(0), label, transcript
 
-    def _transcribe_from_path(self, path):
+    def _transcribe_from_path(self, path: str) -> str:
         result = self.asr_pipeline(path, return_timestamps=False)
         return result["text"]
 
-    def _transcribe(self):
+    def _transcribe(self) -> None:
         if os.path.exists(self.cache_path):
             print(f"Loading pre-transcribed cache from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
@@ -118,9 +132,13 @@ class RAVDESSDatasetASR(Dataset):
                     pickle.dump(self.transcripts, f)
 
 
-def ravdess_collate_fn(batch, tokenizer, cfg):
+def ravdess_collate_fn(
+    batch: List[Tuple[torch.Tensor, str, str]],
+    tokenizer: PreTrainedTokenizer,
+    cfg: DictConfig,
+) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+
     max_text_length = getattr(cfg, "max_text_length", 64)
-    dataset_name = cfg.datasets.name.lower()
 
     waveforms, labels, transcripts = zip(*batch)
     waveforms = torch.stack(waveforms)

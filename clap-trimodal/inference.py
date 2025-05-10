@@ -3,19 +3,32 @@ import random
 import torch
 import hydra
 
-from transformers import RobertaTokenizer
+from transformers import RobertaTokenizer, PreTrainedTokenizer, PreTrainedModel
 from omegaconf import DictConfig, OmegaConf
+from torch import Tensor
+from torch.utils.data import Dataset
+from typing import Dict
 
 from dotenv import load_dotenv
 from model_loader import load_trained_model, load_class_embeds
 from datascripts.dataset_loader import get_dataset
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
+def inference(
+    cfg: DictConfig,
+    model: PreTrainedModel,
+    tokenizer: PreTrainedTokenizer,
+    test_dataset: Dataset,
+    class_embeds: Tensor,
+    emotion2idx: Dict[str, int],
+    idx2emotion: Dict[int, str],
+    device: torch.device,
+) -> None:
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
@@ -52,7 +65,7 @@ def inference(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, id
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def run_inference(cfg: DictConfig):
+def run_inference(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")

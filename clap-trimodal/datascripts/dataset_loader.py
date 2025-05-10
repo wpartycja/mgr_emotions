@@ -1,8 +1,11 @@
+from omegaconf import DictConfig
+from transformers import PreTrainedTokenizer
+
 from datascripts.speech_commands import SpeechCommandsText, speech_collate_fn
 from datascripts.ravdess import RAVDESSDatasetASR, ravdess_collate_fn
 
 
-def get_dataset(cfg, tokenizer, split):
+def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
     name = cfg.datasets.name.lower()
 
     if name == "speech_commands":
@@ -22,7 +25,7 @@ def get_dataset(cfg, tokenizer, split):
         raise ValueError(f"Unsupported dataset: {name}")
 
 
-def get_dataset_and_collate_fn(cfg, tokenizer, split="train"):
+def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str = "train"):
     dataset = get_dataset(cfg, tokenizer, split)
     name = cfg.datasets.name.lower()
 

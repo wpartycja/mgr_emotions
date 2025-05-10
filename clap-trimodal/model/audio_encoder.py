@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 
+from typing import Type
 from transformers import Wav2Vec2Model, WavLMModel, HubertModel
 
 
-def get_audio_encoder(name: str):
+def get_audio_encoder(name: str) -> Type[nn.Module]:
     if name == "Wav2Vec":
         return Wav2Vec
     elif name == "WavLM":
@@ -18,7 +19,9 @@ def get_audio_encoder(name: str):
 
 
 class Wav2Vec(nn.Module):
-    def __init__(self, access_token: str, model_name="facebook/wav2vec2-base-960h"):
+    """Wrapper for facebook/wav2vec2 model that outputs pooled embeddings."""
+
+    def __init__(self, access_token: str, model_name: str = "facebook/wav2vec2-base-960h"):
         super().__init__()
         self.model = Wav2Vec2Model.from_pretrained(model_name, token=access_token)
         self.output_dim = self.model.config.hidden_size
@@ -30,7 +33,9 @@ class Wav2Vec(nn.Module):
 
 
 class DistilHuBERT(nn.Module):
-    def __init__(self, access_token: str, model_name="ntu-spml/distilhubert"):
+    """Wrapper for ntu-spml/distilhubert model that outputs pooled embeddings."""
+
+    def __init__(self, access_token: str, model_name: str = "ntu-spml/distilhubert"):
         super().__init__()
         self.model = Wav2Vec2Model.from_pretrained(model_name, token=access_token)
         self.output_dim = self.model.config.hidden_size
@@ -42,7 +47,9 @@ class DistilHuBERT(nn.Module):
 
 
 class WavLM(nn.Module):
-    def __init__(self, model_name="microsoft/wavlm-base"):
+    """Wrapper for microsoft/wavlm-base model that outputs pooled embeddings."""
+
+    def __init__(self, model_name: str = "microsoft/wavlm-base"):
         super().__init__()
         self.model = WavLMModel.from_pretrained(model_name)
         self.output_dim = self.model.config.hidden_size
@@ -54,7 +61,9 @@ class WavLM(nn.Module):
 
 
 class HuBERT(nn.Module):
-    def __init__(self, model_name="facebook/hubert-base-ls960"):
+    """Wrapper for facebook/hubert-base-ls960 model that outputs pooled embeddings."""
+
+    def __init__(self, model_name: str = "facebook/hubert-base-ls960"):
         super().__init__()
         self.model = HubertModel.from_pretrained(model_name)
         self.output_dim = self.model.config.hidden_size

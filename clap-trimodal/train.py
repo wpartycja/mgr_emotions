@@ -20,7 +20,7 @@ access_token = os.getenv("HF_TOKEN")
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def train(cfg: DictConfig):
+def train(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
 
     print("Loading tokenizer...")

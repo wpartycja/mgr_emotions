@@ -1,4 +1,7 @@
-def get_prompt(label, cfg, **kwargs):
+from omegaconf import DictConfig
+
+
+def get_prompt(label: str, cfg: DictConfig, **kwargs) -> str:
     """
     Generate a prompt for a given label using either:
     - a per-class dictionary from cfg.datasets.label2text

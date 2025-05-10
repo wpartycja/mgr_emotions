@@ -1,17 +1,22 @@
 import os
 import torch
 
-from transformers import RobertaTokenizer
+from transformers import RobertaTokenizer, PreTrainedTokenizer
+from omegaconf import DictConfig
+from typing import Tuple, Dict, List
+from torch import Tensor
 
 from model.clap_trimodal import CLAPTriModal
 from datascripts.prompt_utils import get_prompt
 from dotenv import load_dotenv
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-def load_trained_model(cfg):
+def load_trained_model(cfg: DictConfig) -> Tuple[CLAPTriModal, PreTrainedTokenizer, torch.device]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
 
@@ -25,7 +30,10 @@ def load_trained_model(cfg):
     return model, tokenizer, device
 
 
-def load_class_embeds(cfg, model, tokenizer, label_names, device):
+def load_class_embeds(
+    cfg: DictConfig, model: CLAPTriModal, tokenizer: PreTrainedTokenizer, label_names: List[str], device: torch.device
+) -> Tuple[Tensor, Dict[str, int], Dict[int, str]]:
+
     emotion2idx = {label: idx for idx, label in enumerate(label_names)}
     idx2emotion = {idx: label for label, idx in emotion2idx.items()}
 

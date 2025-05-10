@@ -6,21 +6,26 @@ import random
 from collections import defaultdict
 from transformers import PreTrainedTokenizer
 from torch.utils.data import Dataset
+from typing import List, Tuple, Dict, Union
+from omegaconf import DictConfig
+from torch import Tensor
 
 from datasets import load_dataset
 
 
 class SpeechCommandsText(Dataset):
+    """Simplified version of speech commands dataset, with different classes and with two modalities: audio and text."""
+
     def __init__(
         self,
         tokenizer: PreTrainedTokenizer,
-        split="train",
-        max_len=128,
-        train_samples_per_class=200,
-        train_rate=0.8,
-        eval_rate=0.1,
-        seed=42,
-        cache_path=None,
+        split: str = "train",
+        max_len: int = 128,
+        train_samples_per_class: int = 200,
+        train_rate: float = 0.8,
+        eval_rate: float = 0.1,
+        seed: int = 42,
+        cache_path: str = None,
     ):
         self.tokenizer = tokenizer
         self.max_len = max_len
@@ -47,10 +52,12 @@ class SpeechCommandsText(Dataset):
 
         self.filtered_dataset = self._load_or_prepare_dataset()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.filtered_dataset)
 
-    def __getitem__(self, idx):
+    def __getitem__(
+        self, idx: int
+    ) -> Union[Tuple[torch.Tensor, Dict[str, torch.Tensor], int], Tuple[torch.Tensor, str, str]]:
         item = self.filtered_dataset[idx]
         waveform = torch.tensor(item["audio"]["array"], dtype=torch.float32)
 
@@ -76,10 +83,10 @@ class SpeechCommandsText(Dataset):
         else:
             return waveform, group, word
 
-    def __get_label_to_group(self):
+    def __get_label_to_group(self) -> Dict[str, str]:
         return {word: group for group, words in self.class_map.items() for word in words}
 
-    def __get_grouped_data(self, dataset):
+    def __get_grouped_data(self, dataset: Dataset) -> Dict[str, List[Dict]]:
         grouped = defaultdict(list)
         for item in dataset:
             word = dataset.features["label"].int2str(item["label"])
@@ -88,7 +95,7 @@ class SpeechCommandsText(Dataset):
                 grouped[group].append({**item, "word": word, "group": group})
         return grouped
 
-    def _load_or_prepare_dataset(self):
+    def _load_or_prepare_dataset(self) -> List[Dict]:
         if self.cache_path and os.path.exists(self.cache_path):
             print(f"Loading pre-transcribed cache from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
@@ -118,7 +125,7 @@ class SpeechCommandsText(Dataset):
 
         return self.__split_cached_dataset(full_dataset)
 
-    def __split_cached_dataset(self, full_dataset):
+    def __split_cached_dataset(self, full_dataset: List[Dict]) -> List[Dict]:
         grouped_data = defaultdict(list)
         for item in full_dataset:
             grouped_data[item["group"]].append(item)
@@ -147,7 +154,13 @@ class SpeechCommandsText(Dataset):
         return split_data
 
 
-def speech_collate_fn(batch, tokenizer, cfg, dataset):
+def speech_collate_fn(
+    batch: List[Tuple[Tensor, Dict[str, Tensor], int]],
+    tokenizer: PreTrainedTokenizer,
+    cfg: DictConfig,
+    dataset: SpeechCommandsText,
+) -> Tuple[Tensor, Dict[str, Tensor], Dict[str, Tensor]]:
+
     audios, text_inputs, labels = zip(*batch)
     audios = torch.stack(audios)
     labels = torch.tensor(labels)
