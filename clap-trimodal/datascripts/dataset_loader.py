@@ -6,19 +6,19 @@ from datascripts.ravdess import RAVDESSDatasetASR, ravdess_collate_fn
 
 
 def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
-    name = cfg.datasets.name.lower()
+    name = cfg.dataset.name.lower()
 
     if name == "speech_commands":
         return SpeechCommandsText(
             tokenizer=tokenizer,
             split=split,
-            train_samples_per_class=cfg.datasets.samples_per_class,
-            cache_path=cfg.datasets.cache_file,
+            train_samples_per_class=cfg.dataset.samples_per_class,
+            cache_path=cfg.dataset.cache_file,
         )
     elif name == "ravdess":
         return RAVDESSDatasetASR(
-            data_dir=cfg.datasets.data_dir,
-            cache_path=cfg.datasets.cache_file,
+            data_dir=cfg.dataset.data_dir,
+            cache_path=cfg.dataset.cache_file,
             split=split,
         )
     else:
@@ -27,7 +27,7 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
 
 def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str = "train"):
     dataset = get_dataset(cfg, tokenizer, split)
-    name = cfg.datasets.name.lower()
+    name = cfg.dataset.name.lower()
 
     if name == "speech_commands":
         collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg, dataset)

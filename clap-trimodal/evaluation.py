@@ -1,10 +1,11 @@
 import os
 import torch
 import hydra
+import wandb
 
 from transformers import RobertaTokenizer, PreTrainedTokenizer, PreTrainedModel
 from omegaconf import DictConfig
-from typing import Dict
+from typing import Dict, List
 from torch import Tensor
 from torch.utils.data import Dataset
 
@@ -35,7 +36,7 @@ def evaluate(
     emotion2idx: Dict[str, int],
     idx2emotion: Dict[int, str],
     device: torch.device,
-) -> None:
+) -> List[float]:
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
@@ -71,10 +72,20 @@ def evaluate(
             pred_both = torch.argmax(sims_both, dim=1)
             correct_both += (pred_both == label_idx).item()
 
+    acc_both, acc_audio, acc_text = 100 * correct_both / total, 100 * correct_audio / total, 100 * correct_text / total
+
     print(f"Accuracy:")
     print(
-        f"Audio + Text: {100 * correct_both / total:.2f}% | Audio only: {100 * correct_audio / total:.2f}% | Text only: {100 * correct_text / total:.2f}%  "
+        f"Audio + Text: {acc_both:.2f}% | Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n"
     )
+    
+    wandb.log({
+        "eval/acc_audio": acc_audio,
+        "eval/acc_text": acc_text,
+        "eval/acc_both": acc_both,
+    })
+    
+    return acc_both, acc_audio, acc_text
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
@@ -86,7 +97,7 @@ def run_evaluation(cfg: DictConfig) -> None:
     class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
 
     print_class_descriptions(cfg, emotion2idx)
-    print(f"\nEvaluating on {len(test_dataset)} samples from {cfg.datasets.name.lower()}...")
+    print(f"\nEvaluating on {len(test_dataset)} samples from {cfg.dataset.name.lower()}...")
     evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
 

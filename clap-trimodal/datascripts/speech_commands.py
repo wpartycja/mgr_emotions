@@ -169,7 +169,7 @@ def speech_collate_fn(
 
     # Get label names from dataset (not cfg!)
     label_names = dataset.all_labels
-    label_texts = [cfg.datasets.prompt_template.format(label=label_names[y]) for y in labels]
+    label_texts = [cfg.dataset.prompt_template.format(label=label_names[y]) for y in labels]
 
     class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64)
 

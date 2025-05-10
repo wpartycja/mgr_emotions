@@ -1,6 +1,6 @@
 defaults:
   - model: default_model
   - train: base
-  - datasets: speech_commands
+  - dataset: speech_commands
 
 output_dir: ./hydra_configs
