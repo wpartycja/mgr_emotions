@@ -26,7 +26,7 @@ def get_dataset_and_collate_fn(cfg, tokenizer, split="train"):
     name = cfg.datasets.name.lower()
 
     if name == "speech_commands":
-        collate_fn = lambda batch: speech_collate_fn(batch, dataset, tokenizer)
+        collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg)
     elif name == "ravdess":
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
     else:

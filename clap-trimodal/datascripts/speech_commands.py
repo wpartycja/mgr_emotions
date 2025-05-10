@@ -71,14 +71,20 @@ class SpeechCommandsText(Dataset):
             filtered_dataset.extend(sampled)
         return filtered_dataset
 
-def speech_collate_fn(batch, train_dataset, tokenizer):
-    audios, text_inputs, labels = zip(*batch)
+def speech_collate_fn(batch, tokenizer, cfg):
+    audios, labels, text_inputs = zip(*batch)
     audios = torch.stack(audios)
-    labels = torch.tensor(labels)
-    text_inputs = {key: torch.stack([x[key] for x in text_inputs]) for key in text_inputs[0]}
 
-    # Create class description text
-    label_texts = [f"This is the class: {train_dataset.group_labels[y]}" for y in labels]
-    class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64)
+    text_inputs = tokenizer(list(text_inputs), return_tensors="pt", padding=True, truncation=True)
+    text_inputs = {key: val for key, val in text_inputs.items()}
 
-    return audios, text_inputs, class_text_inputs
+   
+    # Use the prompt template from Hydra config
+    prompt_template = cfg.datasets.prompt_template
+    label_texts = [prompt_template.format(label=label) for label in labels]
+
+    class_text_inputs = tokenizer(
+        label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64
+    )
+
+    return audios, class_text_inputs, text_inputs

@@ -64,7 +64,6 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig):
-    print(OmegaConf.to_yaml(cfg))
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")
     label_names = test_dataset.all_labels
