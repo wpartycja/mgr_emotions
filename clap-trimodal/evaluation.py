@@ -12,16 +12,17 @@ from datascripts.prompt_utils import get_prompt
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
+def print_class_descriptions(cfg, emotion2idx):
+    print("\nClass Descriptions:")
+    for label, idx in emotion2idx.items():
+        prompt = get_prompt(label, cfg)
+        print(f"{label} ({idx}): {prompt}")
+
 
 def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device):
     get_waveform = lambda x: x[0]
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
-
-    print("\nClass Descriptions:")
-    for label, idx in emotion2idx.items():
-        prompt = get_prompt(label, cfg)
-        print(f"{label} ({idx}): {prompt}")
 
     correct_audio = correct_text = correct_both = 0
     total = len(test_dataset)
@@ -62,15 +63,17 @@ def evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx
     print(f"Accuracy (Audio + Text): {100 * correct_both / total:.2f}%")
 
 
+
 @hydra.main(config_path="conf", config_name="config", version_base=None)
-def main(cfg: DictConfig):
+def run_evaluation(cfg: DictConfig):
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")
     label_names = test_dataset.all_labels
     model, tokenizer, device = load_trained_model(cfg)
     class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
 
+    print_class_descriptions(cfg, emotion2idx)
     evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
-
-main()
+if __name__ == "__main__":
+    run_evaluation()

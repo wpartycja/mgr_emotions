@@ -19,7 +19,7 @@ from omegaconf import DictConfig, OmegaConf
 from load_trained_model import load_trained_model, load_class_embeds
 from datascripts.loader import get_dataset, get_dataset_and_collate_fn
 from datascripts.prompt_utils import get_prompt
-from evaluate import evaluate
+from evaluation import evaluate
 
 
 load_dotenv()
