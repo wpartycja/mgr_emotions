@@ -1,6 +1,10 @@
 /data
 /weights
 /outputs
+/wandb
+/old_logs
+/logs
+/checkpoints
 todo.md
 **/__pycache__
 .env

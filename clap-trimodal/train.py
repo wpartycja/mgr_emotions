@@ -1,6 +1,7 @@
 import os
 import torch
 import hydra
+import wandb
 
 from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer
@@ -11,7 +12,9 @@ from evaluation import evaluate
 from model.contrastive_loss import clip_contrastive_loss
 from model_loader import load_class_embeds
 from datascripts.dataset_loader import get_dataset, get_dataset_and_collate_fn
+from utils.checkpoint import save_checkpoint
 from model.clap_trimodal import CLAPTriModal
+
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -22,6 +25,16 @@ access_token = os.getenv("HF_TOKEN")
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def train(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
+    
+    # Init W&B
+    wandb.init(
+        project="clap-trimodal",
+        name=cfg.get("run_name", None),
+        config=OmegaConf.to_container(cfg, resolve=True),
+    )
+
+    print("W&B initialized")
+
 
     print("Loading tokenizer...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -46,10 +59,11 @@ def train(cfg: DictConfig) -> None:
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
+    best_val_acc = 0.0
 
     print("Starting training...")
     for epoch in range(cfg.train.epochs):
-        print(f"\n------ Epoch {epoch} ------\n")
+        print(f" ------ Epoch {epoch} ------\n")
 
         model.train()
         total_loss, total_audio_text, total_audio_class, total_text_class = 0, 0, 0, 0
@@ -87,6 +101,14 @@ def train(cfg: DictConfig) -> None:
             total_audio_text += loss_audio_text.item()
             total_audio_class += loss_audio_class.item()
             total_text_class += loss_text_class.item()
+            
+            wandb.log({
+                "loss/total": loss.item(),
+                "loss/audio_text": loss_audio_text.item(),
+                "loss/audio_class": loss_audio_class.item(),
+                "loss/text_class": loss_text_class.item(),
+                "step": step,
+            })
 
             if step % 10 == 0:
                 print(f"Step {step:03d}")
@@ -97,24 +119,46 @@ def train(cfg: DictConfig) -> None:
                 print(
                     f"Loss weights | A↔T: {weight_audio_text:.4f} | A↔C: {weight_aduio:.4f} | T↔C: {weight_text:.4f}"
                 )
+                
 
         scheduler.step()
         avg_loss = total_loss / len(train_loader)
         avg_audio_text_loss = total_audio_text / len(train_loader)
         avg_audio_loss = total_audio_class / len(train_loader)
         avg_text_loss = total_text_class / len(train_loader)
-        print(f"\nAvg Loss: {avg_loss:.4f}")
+        
+        print("\n--- Evaluation ---")
+        print(f"Avg Loss: {avg_loss:.4f}")
         print(f"Audio + Text: {avg_audio_text_loss:.4f} | Audio: {avg_audio_loss:.4f} | Text: {avg_text_loss:.4f}")
-
-        # Evaluation after each epoch
+        
         class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
-        evaluate(cfg, model, tokenizer, val_dataset, class_embeds, emotion2idx, idx2emotion, device)
+        acc_both, acc_audio, acc_text = evaluate(cfg, model, tokenizer, val_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
+        curr_best_acc = (acc_both + acc_audio + acc_text) / 3
+        
+        is_best = curr_best_acc > best_val_acc
+        if is_best:
+            best_val_acc = curr_best_acc
+
+        save_checkpoint(
+            model, optimizer, epoch, avg_loss,
+            path=f"checkpoints/{cfg.dataset.name.lower()}_epoch_{epoch}.pt",
+            is_best=is_best
+        )
+
+        wandb.log({
+            "val/accuracy_audio_text": acc_both,
+            "val/accuracy_audio": acc_audio,
+            "val/accuracy_text": acc_text,
+            "epoch": epoch,
+        })
+            
     # Save model
-    path = f"./weights/{cfg.datasets.model_output}"
+    path = f"./weights/{cfg.dataset.model_output}"
     torch.save(model.state_dict(), path)
     print(f"Model saved to {path}")
 
+    wandb.finish()
 
 if __name__ == "__main__":
     train()
