@@ -1,7 +1,6 @@
 import os
 import torch
 import hydra
-import wandb
 
 from transformers import RobertaTokenizer, PreTrainedTokenizer, PreTrainedModel
 from omegaconf import DictConfig
@@ -78,12 +77,6 @@ def evaluate(
     print(
         f"Audio + Text: {acc_both:.2f}% | Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n"
     )
-    
-    wandb.log({
-        "eval/acc_audio": acc_audio,
-        "eval/acc_text": acc_text,
-        "eval/acc_both": acc_both,
-    })
     
     return acc_both, acc_audio, acc_text
 
