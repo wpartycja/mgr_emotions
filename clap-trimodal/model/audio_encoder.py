@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from typing import Type
-from transformers import Wav2Vec2Model, WavLMModel, HubertModel
+from transformers import Wav2Vec2Model, WavLMModel, HubertModel, AutoModel
 
 
 def get_audio_encoder(name: str) -> Type[nn.Module]:
@@ -37,7 +37,7 @@ class DistilHuBERT(nn.Module):
 
     def __init__(self, access_token: str, model_name: str = "ntu-spml/distilhubert"):
         super().__init__()
-        self.model = Wav2Vec2Model.from_pretrained(model_name, token=access_token)
+        self.model = AutoModel.from_pretrained(model_name, token=access_token)
         self.output_dim = self.model.config.hidden_size
 
     def forward(self, input_waveform, attention_mask=None):
