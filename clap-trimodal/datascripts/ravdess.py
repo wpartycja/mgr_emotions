@@ -2,6 +2,7 @@ import os
 import torch
 import torchaudio
 import pickle
+import warnings
 
 from transformers import pipeline
 from torch.utils.data import Dataset
@@ -12,6 +13,7 @@ from omegaconf import DictConfig
 
 from datascripts.prompt_utils import get_prompt
 
+warnings.filterwarnings('ignore')
 
 class RAVDESSDatasetASR(Dataset):
     """Ravdess Dataset with two modalities: audio and text."""
@@ -59,7 +61,7 @@ class RAVDESSDatasetASR(Dataset):
             for file in files:
                 if file.endswith(".wav"):
                     parts = file.split("-")
-                    if parts[0] == "03" and parts[1] == "01":
+                    if parts[0] == "03":
                         emotion_id = int(parts[2])
                         emotion_label = self.emotion_map.get(emotion_id, None)
                         if emotion_label is not None:

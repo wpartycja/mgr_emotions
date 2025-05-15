@@ -28,7 +28,8 @@ def save_checkpoint(
         "scheduler_state_dict": scheduler.state_dict(), 
         "epoch": epoch,
         "loss": loss,
-        "best_val_acc": best_val_acc
+        "best_val_acc": best_val_acc,
+        "wandb_id": wandb.run.id
     }
     
     path_w_epoch = f"{path.split('.')[0]}_{epoch}.pt"

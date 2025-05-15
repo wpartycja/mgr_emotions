@@ -26,10 +26,19 @@ access_token = os.getenv("HF_TOKEN")
 def train(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
     
-    # Init W&B
+    run_id = None
+    if cfg.dataset.get("model_checkpoint"):
+        checkpoint_path = cfg.dataset.model_checkpoint
+        print(f"Checking for W&B run ID in checkpoint: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path)
+        run_id = checkpoint.get("wandb_id", None)
+    
+    
     wandb.init(
         project="clap-trimodal",
         name=cfg.get("run_name", None),
+        id=run_id,
+        resume="allow" if run_id else None,
         config=OmegaConf.to_container(cfg, resolve=True),
     )
 
@@ -43,7 +52,7 @@ def train(cfg: DictConfig) -> None:
     print("Loading dataset...")
     # Load dataset and collate function
     train_dataset, collate_fn = get_dataset_and_collate_fn(cfg, tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8)
 
     val_dataset = get_dataset(cfg, tokenizer, "validation")
     label_names = val_dataset.all_labels
@@ -63,6 +72,7 @@ def train(cfg: DictConfig) -> None:
     # Optionally load model from checkpoint if provided in config
     if cfg.dataset.get("model_checkpoint"):
         model, optimizer, scheduler, start_epoch, best_val_acc = load_checkpoint(cfg, model, optimizer, scheduler, device)
+        start_epoch = start_epoch + 1
     else:
         start_epoch = 0
         best_val_acc = 0.0
@@ -161,10 +171,6 @@ def train(cfg: DictConfig) -> None:
             "epoch": epoch,
         })
             
-    # Save model
-    path = f"./weights/{cfg.dataset.model_output}"
-    torch.save(model.state_dict(), path)
-    print(f"Model saved to {path}")
 
     wandb.finish()
 
