@@ -12,7 +12,7 @@ from evaluation import evaluate
 from model.contrastive_loss import clip_contrastive_loss
 from model_loader import load_class_embeds
 from datascripts.dataset_loader import get_dataset, get_dataset_and_collate_fn
-from utils.checkpoint import save_checkpoint
+from utils.checkpoint import save_checkpoint, load_checkpoint
 from model.clap_trimodal import CLAPTriModal
 
 
@@ -56,14 +56,22 @@ def train(cfg: DictConfig) -> None:
     model = CLAPTriModal(
         cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token
     ).to(device)
-
+    
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
-    best_val_acc = 0.0
+    
+    # Optionally load model from checkpoint if provided in config
+    if cfg.dataset.get("model_checkpoint"):
+        model, optimizer, scheduler, start_epoch, best_val_acc = load_checkpoint(cfg, model, optimizer, scheduler, device)
+    else:
+        start_epoch = 0
+        best_val_acc = 0.0
+        print("No checkpoint specified. Training from scratch.")
+
 
     print("Starting training...")
-    for epoch in range(cfg.train.epochs):
-        print(f" ------ Epoch {epoch} ------\n")
+    for epoch in range(start_epoch, cfg.train.epochs):
+        print(f"\n------ Epoch {epoch} ------\n")
 
         model.train()
         total_loss, total_audio_text, total_audio_class, total_text_class = 0, 0, 0, 0
@@ -141,8 +149,8 @@ def train(cfg: DictConfig) -> None:
             best_val_acc = curr_best_acc
 
         save_checkpoint(
-            model, optimizer, epoch, avg_loss,
-            path=f"checkpoints/{cfg.dataset.name.lower()}_epoch_{epoch}.pt",
+            model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
+            path=f"checkpoints/{cfg.dataset.model_output.lower()}",
             is_best=is_best
         )
 
