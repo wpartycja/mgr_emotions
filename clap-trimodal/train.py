@@ -163,6 +163,15 @@ def train(cfg: DictConfig) -> None:
             path=f"checkpoints/{cfg.dataset.model_output.lower()}",
             is_best=is_best
         )
+        
+                    
+        wandb.log({
+            "avg_loss/avg_total": loss.item(),
+            "avg_loss/avg_audio_text": loss_audio_text.item(),
+            "avg_loss/avg_audio_class": loss_audio_class.item(),
+            "avg_loss/avg_text_class": loss_text_class.item(),
+            "epoch": epoch,
+        })
 
         wandb.log({
             "val/accuracy_audio_text": acc_both,
