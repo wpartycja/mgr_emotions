@@ -24,7 +24,8 @@ def load_trained_model(cfg: DictConfig) -> Tuple[CLAPTriModal, PreTrainedTokeniz
         cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token
     ).to(device)
 
-    model.load_state_dict(torch.load(f"./weights/{cfg.dataset.model_output}", map_location=device))
+    checkpoint = torch.load(cfg.dataset.model_checkpoint)
+    model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 
     return model, tokenizer, device

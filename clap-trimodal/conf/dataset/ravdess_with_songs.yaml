@@ -2,6 +2,6 @@ name: Ravdess
 data_dir: data/raw/ravdess
 cache_file: data/processed/ravdess_with_songs_cache.pkl
 model_output: ravdess_with_songs.pt
-model_checkpoint: null
+model_checkpoint: checkpoints/ravdess_with_songs_best.pt
 samples_per_class: null
 prompt_template: "This person is feeling: {label}."
