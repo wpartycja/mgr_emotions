@@ -1,45 +1,31 @@
 import os
+import pickle
 import torch
 import torchaudio
-import pickle
-import warnings
-
-from transformers import pipeline
-from torch.utils.data import Dataset
+from pathlib import Path
 from tqdm import tqdm
-from typing import List, Tuple, Dict
-from transformers import PreTrainedTokenizer
-from omegaconf import DictConfig
+from transformers import pipeline
 
-from datascripts.prompt_utils import get_prompt
+from base_dataset import MultimodalSpeechDataset
 
-warnings.filterwarnings('ignore')
 
-class RAVDESSDatasetASR(Dataset):
-    """Ravdess Dataset with two modalities: audio and text."""
+class RAVDESSDataset(MultimodalSpeechDataset):
+    """RAVDESS dataset with audio + transcribed text using Whisper ASR."""
 
     def __init__(
         self,
         data_dir: str,
-        cache_path: str,
         split: str,
-        train_rate: float = 0.8,
-        eval_rate: float = 0.1,
         sample_rate: int = 16000,
         max_length: int = 5,
+        train_rate: float = 0.8,
+        eval_rate: float = 0.1,
+        cache_path: str = None,
     ):
-        self.data_dir = data_dir
-        self.sample_rate = sample_rate
-        self.max_length = max_length
-        self.cache_path = cache_path  # to save or to load from
-        self.split = split
         self.train_rate = train_rate
         self.eval_rate = eval_rate
+        self.cache_path = cache_path
 
-        self.filepaths = []
-        self.labels = []
-
-        # from filenames to string
         self.emotion_map = {
             1: "neutral",
             2: "calm",
@@ -51,116 +37,69 @@ class RAVDESSDatasetASR(Dataset):
             8: "surprised",
         }
 
-        self.all_labels = sorted(self.emotion_map.values())
+        super().__init__(data_dir, split, sample_rate, max_length)
 
+    def _load_metadata(self):
         self._collect_files()
+        self._apply_split()
         self._transcribe()
 
     def _collect_files(self):
+        """Collect all audio paths and emotion labels from filenames."""
+        self.audio_paths = []
+        self.labels = []
+
         for root, _, files in os.walk(self.data_dir):
             for file in files:
                 if file.endswith(".wav"):
                     parts = file.split("-")
-                    if parts[0] == "03":
+                    if parts[0] == "03":  # audio-only modality
                         emotion_id = int(parts[2])
-                        emotion_label = self.emotion_map.get(emotion_id, None)
-                        if emotion_label is not None:
-                            self.filepaths.append(os.path.join(root, file))
-                            self.labels.append(emotion_label)
+                        label = self.emotion_map.get(emotion_id)
+                        if label:
+                            self.audio_paths.append(os.path.join(root, file))
+                            self.labels.append(label)
 
-        # Apply split after collection
-        data = list(zip(self.filepaths, self.labels))
-        data.sort()  # Ensure deterministic order
+    def _apply_split(self):
+        """Split data deterministically into train/val/test."""
+        data = list(zip(self.audio_paths, self.labels))
+        data.sort()
+
         total = len(data)
         train_end = int(self.train_rate * total)
         val_end = int((self.train_rate + self.eval_rate) * total)
 
         if self.split == "train":
-            data = data[:train_end]
+            split_data = data[:train_end]
         elif self.split == "validation":
-            data = data[train_end:val_end]
+            split_data = data[train_end:val_end]
         elif self.split == "test":
-            data = data[val_end:]
+            split_data = data[val_end:]
         else:
-            raise ValueError(f"Unknown split: {self.split}")
+            raise ValueError(f"Invalid split: {self.split}")
 
-        self.filepaths, self.labels = zip(*data)
+        self.audio_paths, self.labels = zip(*split_data)
 
-    def __len__(self) -> int:
-        return len(self.filepaths)
-
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, str, str]:
-        filepath = self.filepaths[idx]
-        label = self.labels[idx]
-
-        waveform, sr = torchaudio.load(filepath)
-        if sr != self.sample_rate:
-            waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)(waveform)
-
-        if waveform.size(0) > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-
-        target_length = self.sample_rate * self.max_length
-        if waveform.size(1) < target_length:
-            waveform = torch.nn.functional.pad(waveform, (0, target_length - waveform.size(1)))
-        else:
-            waveform = waveform[:, :target_length]
-
-        transcript = self.transcripts[idx]
-
-        return waveform.squeeze(0), label, transcript
-
-    def _transcribe_from_path(self, path: str) -> str:
-        result = self.asr_pipeline(path, return_timestamps=False)
-        return result["text"]
-
-    def _transcribe(self) -> None:
-        if os.path.exists(self.cache_path):
-            print(f"Loading pre-transcribed cache from {self.cache_path}...")
+    def _transcribe(self):
+        """Transcribe audio using Whisper ASR, or load from cache."""
+        if self.cache_path and os.path.exists(self.cache_path):
+            print(f"Loading cached transcripts from {self.cache_path}...")
             with open(self.cache_path, "rb") as f:
                 self.transcripts = pickle.load(f)
         else:
+            print("Running Whisper ASR on RAVDESS audio...")
             self.asr_pipeline = pipeline("automatic-speech-recognition", model="openai/whisper-tiny.en")
-
-            print("Preloading transcripts with progress bar...")
             self.transcripts = []
-            for path in tqdm(self.filepaths, desc="Transcribing audio"):
-                transcript = self._transcribe_from_path(path)
-                self.transcripts.append(transcript)
+
+            for path in tqdm(self.audio_paths, desc="Transcribing"):
+                result = self._transcribe_from_path(path)
+                self.transcripts.append(result)
 
             if self.cache_path:
-                print(f"Saving transcriptions to {self.cache_path}...")
                 with open(self.cache_path, "wb") as f:
                     pickle.dump(self.transcripts, f)
 
-
-def ravdess_collate_fn(
-    batch: List[Tuple[torch.Tensor, str, str]],
-    tokenizer: PreTrainedTokenizer,
-    cfg: DictConfig,
-) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-
-    max_text_length = getattr(cfg, "max_text_length", 64)
-
-    waveforms, labels, transcripts = zip(*batch)
-    waveforms = torch.stack(waveforms)
-
-    class_texts = [get_prompt(label, cfg) for label in labels]
-
-    input_text_inputs = tokenizer(
-        list(transcripts),
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=max_text_length,
-    )
-
-    class_text_inputs = tokenizer(
-        class_texts,
-        return_tensors="pt",
-        padding=True,
-        truncation=True,
-        max_length=max_text_length,
-    )
-
-    return waveforms, input_text_inputs, class_text_inputs
+    def _transcribe_from_path(self, path: str) -> str:
+        """Run Whisper on a single audio path."""
+        result = self.asr_pipeline(path, return_timestamps=False)
+        return result["text"]
