@@ -1,12 +1,22 @@
 import os
-import pickle
 import torch
 import torchaudio
-from pathlib import Path
-from tqdm import tqdm
-from transformers import pipeline
+import pickle
+import warnings
 
-from base_dataset import MultimodalSpeechDataset
+from transformers import pipeline
+from torch.utils.data import Dataset
+from tqdm import tqdm
+from typing import List, Tuple, Dict
+from transformers import PreTrainedTokenizer
+from omegaconf import DictConfig
+from pathlib import Path
+
+from datascripts.prompt_utils import get_prompt
+from datascripts.base_dataset import MultimodalSpeechDataset
+
+
+warnings.filterwarnings('ignore')
 
 
 class RAVDESSDataset(MultimodalSpeechDataset):
@@ -21,10 +31,14 @@ class RAVDESSDataset(MultimodalSpeechDataset):
         train_rate: float = 0.8,
         eval_rate: float = 0.1,
         cache_path: str = None,
+        include_song: bool = True
     ):
         self.train_rate = train_rate
         self.eval_rate = eval_rate
-        self.cache_path = cache_path
+        
+        cache_name = cache_path.split('.')[0]
+        self.cache_path = f'{cache_name}_{split}.pkl'
+        self.include_song = include_song
 
         self.emotion_map = {
             1: "neutral",
@@ -36,6 +50,8 @@ class RAVDESSDataset(MultimodalSpeechDataset):
             7: "disgust",
             8: "surprised",
         }
+        
+        self.all_labels = sorted(self.emotion_map.values())
 
         super().__init__(data_dir, split, sample_rate, max_length)
 
@@ -45,20 +61,27 @@ class RAVDESSDataset(MultimodalSpeechDataset):
         self._transcribe()
 
     def _collect_files(self):
-        """Collect all audio paths and emotion labels from filenames."""
+        """Recursively collect all .wav files and parse emotion from filename."""
         self.audio_paths = []
         self.labels = []
 
-        for root, _, files in os.walk(self.data_dir):
-            for file in files:
-                if file.endswith(".wav"):
-                    parts = file.split("-")
-                    if parts[0] == "03":  # audio-only modality
-                        emotion_id = int(parts[2])
-                        label = self.emotion_map.get(emotion_id)
-                        if label:
-                            self.audio_paths.append(os.path.join(root, file))
-                            self.labels.append(label)
+        data_dir = Path(self.data_dir)
+
+        subdirs = []
+        if self.include_song:
+            subdirs.append(data_dir / "Audio_Song_Actors_01-24")
+        subdirs.append(data_dir / "Audio_Speech_Actors_01-24")
+
+        for base_dir in subdirs:
+            for file in base_dir.rglob("*.wav"):
+                parts = file.stem.split("-")
+                if parts[0] != "03":
+                    continue  # skip unexpected files
+                emotion_id = int(parts[2])
+                label = self.emotion_map.get(emotion_id)
+                if label:
+                    self.audio_paths.append(str(file))
+                    self.labels.append(label)
 
     def _apply_split(self):
         """Split data deterministically into train/val/test."""
@@ -103,3 +126,35 @@ class RAVDESSDataset(MultimodalSpeechDataset):
         """Run Whisper on a single audio path."""
         result = self.asr_pipeline(path, return_timestamps=False)
         return result["text"]
+
+
+def ravdess_collate_fn(
+    batch: List[Tuple[torch.Tensor, str, str]],
+    tokenizer: PreTrainedTokenizer,
+    cfg: DictConfig,
+) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+
+    max_text_length = getattr(cfg, "max_text_length", 64)
+
+    waveforms, labels, transcripts = zip(*batch)
+    waveforms = torch.stack(waveforms)
+
+    class_texts = [get_prompt(label, cfg) for label in labels]
+
+    input_text_inputs = tokenizer(
+        list(transcripts),
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_text_length,
+    )
+
+    class_text_inputs = tokenizer(
+        class_texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=max_text_length,
+    )
+
+    return waveforms, input_text_inputs, class_text_inputs
