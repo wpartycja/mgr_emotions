@@ -1,6 +1,6 @@
 name: Speech_Commands
 data_dir: null
-cache_file: data/processed/speech_commands_cache_200.pkl
+cache_file: data/caches/speech_commands_cache_200.pkl
 model_output: speech_commands.pt
 model_checkpoint: checkpoints/clap_trimodal_commands.pt
 samples_per_class: 200

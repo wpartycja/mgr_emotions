@@ -1,6 +1,6 @@
 name: Ravdess
 data_dir: data/raw/ravdess
-cache_file: data/processed/ravdess_cache.pkl
+cache_file: data/caches/ravdess_cache.pkl
 model_output: ravdess_custom.pt
 model_checkpoint: null
 samples_per_class: null
