@@ -11,13 +11,17 @@ from typing import List, Tuple
 class MultimodalSpeechDataset(Dataset, ABC):
     def __init__(self, 
                  data_dir: str, 
-                 split: str, 
+                 split: str,
+                 cache_path: str,
                  sample_rate: int = 16000, 
                  max_length: int = 5):
         self.data_dir = data_dir
         self.split = split
         self.sample_rate = sample_rate
         self.max_length = max_length
+        
+        cache_name = cache_path.split('.')[0]
+        self.cache_path = f'{cache_name}_{split}.pkl'
 
         self.audio_paths = []
         self.transcripts = []

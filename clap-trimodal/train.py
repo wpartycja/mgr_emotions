@@ -54,7 +54,7 @@ def train(cfg: DictConfig) -> None:
     train_dataset, collate_fn = get_dataset_and_collate_fn(cfg, tokenizer)
     train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8)
 
-    val_dataset = get_dataset(cfg, tokenizer, "validation")
+    val_dataset = get_dataset(cfg, tokenizer, "val")
     label_names = val_dataset.all_labels
 
     print(f"Train set size: {len(train_dataset)} samples")

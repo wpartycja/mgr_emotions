@@ -142,7 +142,7 @@ class SpeechCommandsText(Dataset):
 
             if self.split == "train":
                 group_items = items[:n_train]
-            elif self.split == "validation":
+            elif self.split == "val":
                 group_items = items[n_train : n_train + n_val]
             elif self.split == "test":
                 group_items = items[n_train + n_val :]
