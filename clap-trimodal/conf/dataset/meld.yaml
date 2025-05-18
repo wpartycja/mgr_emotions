@@ -1,0 +1,8 @@
+name: MELD
+data_dir: data/processed/meld_preprocessed
+cache_file: data/caches/meld.pkl
+model_output: meld.pt
+model_checkpoint: null
+samples_per_class: null
+# prompt_template: "This utterance expresses {label}."
+prompt_template: "The speaker feels {label} in this dialogue."

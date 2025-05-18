@@ -1,7 +1,7 @@
 defaults:
   - model: default_model
   - train: base
-  - dataset: speech_commands
+  - dataset: ravdess_with_songs
   - _self_
 
 output_dir: ./hydra_configs

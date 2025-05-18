@@ -1,7 +1,7 @@
 name: Ravdess
 data_dir: data/raw/ravdess
-cache_file: data/caches/ravdess_cache.pkl
+cache_file: data/caches/ravdess_without_songs_cache.pkl
 model_output: ravdess.pt
-model_checkpoint: checkpoints/clap_trimodal_ravdess.pt
+model_checkpoint: wandb/run-20250515_213643-ravdess-without-songs/files/checkpoints/ravdess_with_songs_best.pt
 samples_per_class: null
 prompt_template: "This speech expresses: {label}."

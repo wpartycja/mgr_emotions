@@ -1,4 +1,4 @@
-batch_size: 32
+batch_size: 64
 lr_enc: 1e-4      # for both encoders
 lr_proj: 1e-4
 epochs: 5
