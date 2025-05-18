@@ -2,14 +2,15 @@ import os
 import torch
 import ffmpeg
 import torchaudio
+import hydra
+
+
 from pathlib import Path
 from tqdm import tqdm
 
 SRC_ROOT = Path("data/processed/meld_audio")  # original audio dir
 DST_ROOT = Path("data/processed/meld_preprocessed")  # output dir
 TARGET_SAMPLE_RATE = 16000
-MAX_LENGTH_SECONDS = 6
-TARGET_LENGTH = TARGET_SAMPLE_RATE * MAX_LENGTH_SECONDS
 
 
 def convert_mp4_to_wav_ffmpeg(src_root, dst_root):
@@ -51,7 +52,9 @@ def convert_mp4_to_wav_ffmpeg(src_root, dst_root):
         print("All files converted successfully!")
 
 
-def preprocess_and_save(audio_path: Path, dst_path: Path):
+def preprocess_and_save(audio_path: Path, dst_path: Path, max_len_seconds: float):
+    target_length = TARGET_SAMPLE_RATE * max_len_seconds
+    
     try:
         waveform, sr = torchaudio.load(audio_path)
 
@@ -65,11 +68,11 @@ def preprocess_and_save(audio_path: Path, dst_path: Path):
             waveform = resampler(waveform)
 
         # Pad or trim
-        if waveform.size(1) < TARGET_LENGTH:
-            pad_size = TARGET_LENGTH - waveform.size(1)
+        if waveform.size(1) < target_length:
+            pad_size = target_length - waveform.size(1)
             waveform = torch.nn.functional.pad(waveform, (0, pad_size))
         else:
-            waveform = waveform[:, :TARGET_LENGTH]
+            waveform = waveform[:, :target_length]
 
         dst_path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(waveform, dst_path)
@@ -78,8 +81,11 @@ def preprocess_and_save(audio_path: Path, dst_path: Path):
         print(f"[ERROR] Failed: {audio_path.name} - {e}")
 
 
-def preprocess_all():
+@hydra.main(config_path="../conf", config_name="config", version_base=None)
+def preprocess_all(cfg):
     splits = ["train", "val", "test"]
+    max_len_seconds = cfg.dataset.max_len_seconds
+    
     for split in splits:
         src_dir = SRC_ROOT / split
         dst_dir = DST_ROOT / split
@@ -89,7 +95,7 @@ def preprocess_all():
 
         for wav_file in tqdm(wav_files, desc=f"Preprocessing {split}"):
             dst_file = dst_dir / wav_file.with_suffix(".pt").name
-            preprocess_and_save(wav_file, dst_file)
+            preprocess_and_save(wav_file, dst_file, max_len_seconds)
 
     print("\nDone preprocessing all splits!")
 
