@@ -47,12 +47,15 @@ def train(cfg: DictConfig) -> None:
 
     print("Loading tokenizer...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device:", device)
+    print("GPU name:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
+    
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
 
     print("Loading dataset...")
     # Load dataset and collate function
     train_dataset, collate_fn = get_dataset_and_collate_fn(cfg, tokenizer)
-    train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=cfg.train.batch_size, shuffle=True, collate_fn=collate_fn, num_workers=16, pin_memory=True, persistent_workers=True)
 
     val_dataset = get_dataset(cfg, tokenizer, "val")
     label_names = val_dataset.all_labels
@@ -66,7 +69,12 @@ def train(cfg: DictConfig) -> None:
         cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token
     ).to(device)
     
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.train.lr)
+    optimizer = torch.optim.AdamW([
+        {"params": model.audio_encoder.parameters(), "lr": cfg.train.lr_enc},
+        {"params": model.input_text_encoder.parameters(), "lr": cfg.train.lr_enc},
+        {"params": model.class_text_encoder.parameters(), "lr": cfg.train.lr_enc},
+        {"params": [model.logit_scale], "lr": cfg.train.lr_proj},  
+    ], lr=cfg.train.lr_proj)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
     
     # Optionally load model from checkpoint if provided in config
