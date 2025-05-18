@@ -15,6 +15,8 @@ from datascripts.dataset_loader import get_dataset, get_dataset_and_collate_fn
 from utils.checkpoint import save_checkpoint, load_checkpoint
 from model.clap_trimodal import CLAPTriModal
 
+import torch.cuda.amp as amp
+from time import time
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -62,7 +64,7 @@ def train(cfg: DictConfig) -> None:
 
     print(f"Train set size: {len(train_dataset)} samples")
     print(f"Validation set size: {len(val_dataset)} samples")
-
+    
     # Initialize model
     print("Initializing model...")
     model = CLAPTriModal(
@@ -76,6 +78,8 @@ def train(cfg: DictConfig) -> None:
         {"params": [model.logit_scale], "lr": cfg.train.lr_proj},  
     ], lr=cfg.train.lr_proj)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
+    
+    scaler = amp.GradScaler()
     
     # Optionally load model from checkpoint if provided in config
     if cfg.dataset.get("model_checkpoint"):
@@ -94,34 +98,41 @@ def train(cfg: DictConfig) -> None:
         model.train()
         total_loss, total_audio_text, total_audio_class, total_text_class = 0, 0, 0, 0
 
-        for step, (audio, text_inputs, class_text_inputs) in enumerate(train_loader):
+        start_step = 0
+        start = time()
+        
+        for step, (audio, text_inputs, class_text_inputs) in enumerate(train_loader):            
             audio = audio.to(device)
             text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
             class_text_inputs = {k: v.to(device) for k, v in class_text_inputs.items()}
+            
+            
+            with amp.autocast():
+                out = model(audio=audio, input_text=text_inputs, class_text=class_text_inputs)
 
-            out = model(audio=audio, input_text=text_inputs, class_text=class_text_inputs)
+                scale = out["contrastive_scale"]
+                audio_embed = out["audio_embed"]
+                text_embed = out["input_text_embed"]
+                class_embed = out["class_text_embed"]
 
-            scale = out["contrastive_scale"]
-            audio_embed = out["audio_embed"]
-            text_embed = out["input_text_embed"]
-            class_embed = out["class_text_embed"]
+                # Contrastive losses between all 3 modalities (pairwise)
+                loss_audio_text = clip_contrastive_loss(audio_embed, text_embed, scale, device=device)
+                loss_audio_class = clip_contrastive_loss(audio_embed, class_embed, scale, device=device)
+                loss_text_class = clip_contrastive_loss(text_embed, class_embed, scale, device=device)
 
-            # Contrastive losses between all 3 modalities (pairwise)
-            loss_audio_text = clip_contrastive_loss(audio_embed, text_embed, scale, device=device)
-            loss_audio_class = clip_contrastive_loss(audio_embed, class_embed, scale, device=device)
-            loss_text_class = clip_contrastive_loss(text_embed, class_embed, scale, device=device)
-
-            # Proportional loss weights
-            losses = [loss_audio_text, loss_audio_class, loss_text_class]
-            temperature = 0.5
-            loss_tensor = torch.tensor([l.item() for l in losses])
-            weights = torch.softmax(loss_tensor / temperature, dim=0)
-            loss = sum(w * l for w, l in zip(weights, losses))
+                # Proportional loss weights
+                losses = [loss_audio_text, loss_audio_class, loss_text_class]
+                temperature = 0.5
+                loss_tensor = torch.tensor([l.item() for l in losses])
+                weights = torch.softmax(loss_tensor / temperature, dim=0)
+                loss = sum(w * l for w, l in zip(weights, losses))
 
             optimizer.zero_grad()
-            loss.backward()
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
 
             total_loss += loss.item()
             total_audio_text += loss_audio_text.item()
@@ -145,6 +156,12 @@ def train(cfg: DictConfig) -> None:
                 print(
                     f"Loss weights | A↔T: {weight_audio_text:.4f} | A↔C: {weight_aduio:.4f} | T↔C: {weight_text:.4f}"
                 )
+            
+            if start_step + 10 == step:
+                    end = time()
+                    print(f"Duration of 10 steps: {end-start}")
+                    start_step = step
+                    start = time()
                 
 
         scheduler.step()
