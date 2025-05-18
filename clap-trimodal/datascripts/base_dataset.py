@@ -32,23 +32,30 @@ class MultimodalSpeechDataset(Dataset, ABC):
     def __len__(self) -> int:
         return len(self.audio_paths)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, str, str]:
-        audio_path = self.audio_paths[idx]
+    def __getitem__(self, idx):
+        path = self.audio_paths[idx]
         label = self.labels[idx]
         transcript = self.transcripts[idx]
 
-        waveform, sr = torchaudio.load(audio_path)
-        if sr != self.sample_rate:
-            waveform = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)(waveform)
-
-        if waveform.size(0) > 1:
-            waveform = waveform.mean(dim=0, keepdim=True)
-
-        target_length = self.sample_rate * self.max_length
-        if waveform.size(1) < target_length:
-            waveform = F.pad(waveform, (0, target_length - waveform.size(1)))
+        if path.endswith(".pt"):
+            waveform = torch.load(path)
         else:
-            waveform = waveform[:, :target_length]
+            waveform, sr = torchaudio.load(path)
+
+            if waveform.size(0) > 1:
+                waveform = waveform.mean(dim=0, keepdim=True)
+
+            if sr != self.sample_rate:
+                resampler = torchaudio.transforms.Resample(orig_freq=sr, new_freq=self.sample_rate)
+                waveform = resampler(waveform)
+
+            # Clip or pad to target length
+            target_length = self.sample_rate * self.max_length
+            if waveform.size(1) < target_length:
+                pad_len = target_length - waveform.size(1)
+                waveform = F.pad(waveform, (0, pad_len))
+            else:
+                waveform = waveform[:, :target_length]
 
         return waveform.squeeze(0), label, transcript
 
