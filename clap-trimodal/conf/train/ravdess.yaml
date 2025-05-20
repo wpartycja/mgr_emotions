@@ -1,7 +1,7 @@
 batch_size: 64
 lr_enc: 1e-4      # for both encoders
 lr_proj: 1e-4
-epochs: 5
+epochs: 20
 beta: 1.0 # Contrastive loss weight
 min_temp: 0.01
-max_temp: 0.3
+max_temp: 0.5

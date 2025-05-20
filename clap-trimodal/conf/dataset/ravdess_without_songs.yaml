@@ -1,10 +1,11 @@
 name: Ravdess
 data_dir: data/raw/ravdess
-include_song: True
-cache_file: data/caches/ravdess_with_songs_cache.pkl
-model_output: ravdess_with_songs_64.pt
-model_checkpoint: checkpoints/ravdess_with_songs_64_best.pt
+include_song: False
+cache_file: data/caches/ravdess_without_songs_cache.pkl
+model_output: ravdess_without_songs_64.pt
+model_checkpoint: null
 samples_per_class: null
+# prompt_template: "This speech expresses: {label}."
 prompt_template: "This person is feeling: {label}."
 # label2text:
 #   neutral: "This speech expresses neutrality."

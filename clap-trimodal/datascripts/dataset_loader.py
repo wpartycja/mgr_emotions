@@ -21,6 +21,7 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             data_dir=cfg.dataset.data_dir,
             cache_path=cfg.dataset.cache_file,
             split=split,
+            include_song=cfg.dataset.include_song
         )
     elif name == "meld":
         return MELDDataset(

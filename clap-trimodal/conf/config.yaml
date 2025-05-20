@@ -1,6 +1,6 @@
 defaults:
   - model: default_model
-  - train: base
+  - train: ravdess
   - dataset: ravdess_with_songs
   - _self_
 
