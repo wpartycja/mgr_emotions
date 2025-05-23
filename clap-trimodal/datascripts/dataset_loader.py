@@ -4,6 +4,8 @@ from transformers import PreTrainedTokenizer
 from datascripts.speech_commands import SpeechCommandsText, speech_collate_fn
 from datascripts.ravdess import RAVDESSDataset, ravdess_collate_fn
 from datascripts.meld import MELDDataset, meld_collate_fn
+from datascripts.iemocap import IEMOCAPDataset, iemocap_collate_fn
+
 
 
 def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
@@ -29,6 +31,12 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             cache_path=cfg.dataset.cache_file,
             split=split
         )
+    elif name == "iemocap":
+        return IEMOCAPDataset(
+            data_dir=cfg.dataset.data_dir,
+            cache_path=cfg.dataset.cache_file,
+            split=split
+        )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
@@ -43,6 +51,8 @@ def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, 
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
     elif name == "meld":
         collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)
+    elif name == "iemocap":
+        collate_fn = lambda batch: iemocap_collate_fn(batch, tokenizer, cfg)
     else:
         raise ValueError(f"No collate_fn for dataset: {name}")
 

@@ -8,17 +8,19 @@ import hydra
 from pathlib import Path
 from tqdm import tqdm
 
-SRC_ROOT = Path("data/processed/meld_audio")  # original audio dir
-DST_ROOT = Path("data/processed/meld_preprocessed")  # output dir
 TARGET_SAMPLE_RATE = 16000
+SRC_ROOT = Path("data/raw/iemocap/IEMOCAP_full_release")
+DST_ROOT = Path("data/processed/iemocap")
 
+# SRC_ROOT = Path("data/processed/meld_audio") 
+# DST_ROOT = Path("data/processed/meld_preprocessed") 
 
-def convert_mp4_to_wav_ffmpeg(src_root, dst_root):
+def convert_mp4_to_wav_ffmpeg(SRC_ROOT, DST_ROOT):
     failed_files = []
 
     for split in ["train", "val", "test"]:
-        src_dir = Path(src_root) / split
-        dst_dir = Path(dst_root) / split
+        src_dir = Path(SRC_ROOT) / split
+        dst_dir = Path(DST_ROOT) / split
         dst_dir.mkdir(parents=True, exist_ok=True)
 
         mp4_files = list(src_dir.glob("*.mp4"))
@@ -82,9 +84,9 @@ def preprocess_and_save(audio_path: Path, dst_path: Path, max_len_seconds: float
 
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
-def preprocess_all(cfg):
-    splits = ["train", "val", "test"]
+def preprocess_meld(cfg):
     max_len_seconds = cfg.dataset.max_len_seconds
+    splits = ["train", "val", "test"]
     
     for split in splits:
         src_dir = SRC_ROOT / split
@@ -100,6 +102,26 @@ def preprocess_all(cfg):
     print("\nDone preprocessing all splits!")
 
 
+@hydra.main(config_path="../conf", config_name="config", version_base=None)
+def preprocess_iemocap(cfg):
+    max_len_seconds = cfg.dataset.max_len_seconds
+    splits = ["Session1", "Session2", "Session3", "Session4", "Session5"]
+
+    for session in splits:
+        wav_files = list(Path(SRC_ROOT / session / "wav").rglob("*.wav"))
+
+        print(f"\nProcessing {session}: {len(wav_files)} files")
+        for wav_file in tqdm(wav_files, desc=f"Preprocessing {session}"):
+            relative = wav_file.relative_to(SRC_ROOT)
+            dst_file = DST_ROOT / relative.with_suffix(".pt")
+            preprocess_and_save(wav_file, dst_file, max_len_seconds)
+
+
 if __name__ == "__main__":
     # convert_mp4_to_wav_ffmpeg("data/raw/meld", "data/processed/meld_audio")
-    preprocess_all()
+    
+    # MELD
+    # preprocess_meld(SRC_ROOT, DST_ROOT)
+    
+    # IEMOCAP
+    preprocess_iemocap()
