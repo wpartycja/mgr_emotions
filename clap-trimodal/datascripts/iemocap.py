@@ -57,14 +57,16 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
         self.all_labels = [
             "anger", 
             "happiness", 
-            "excitement", 
+            "excited", 
             "sadness", 
             "frustration", 
             "fear", 
             "surprise", 
             "other",
-            "neutral state"
+            "neutral state",
+            "disgust"
         ]
+
 
         super().__init__(data_dir, split, cache_path, sample_rate, max_length)
 
@@ -161,7 +163,10 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
             counts = Counter(lab_list).most_common()
             max_cnt = counts[0][1]
             tied    = sorted(l for l, c in counts if c == max_cnt)
-            majority[utt_id] = tied[0]  # alphabetical tie-break
+            label = tied[0]
+            if label.startswith("other"):
+                label = "other"
+            majority[utt_id] = label
         return majority
 
 
@@ -187,7 +192,7 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
         n_total  = len(data)
         n_train  = int(self.train_rate * n_total)
         n_val    = int(self.eval_rate  * n_total)
-        train, val, test = data[:n_train], data[n_train:n_train+n_val], data[n_train+n_val:]
+        train, val, test = data[:n_train // 4], data[n_train // 4 :n_train // 4 + n_val // 4], data[n_train+n_val:]
 
         if self.split == "train":
             return train
