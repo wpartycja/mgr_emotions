@@ -5,6 +5,7 @@ cache_file: data/caches/ravdess_with_songs_cache.pkl
 model_output: ravdess_with_songs_64.pt
 model_checkpoint: checkpoints/ravdess_with_songs_64_best.pt
 samples_per_class: null
+max_len_seconds: 6
 prompt_template: "This person is feeling: {label}."
 # label2text:
 #   neutral: "This speech expresses neutrality."

@@ -4,4 +4,5 @@ cache_file: null
 model_output: speech_commands.pt
 model_checkpoint: null
 samples_per_class: 200
+max_len_seconds: 6
 prompt_template: "This is the class: {label}"
