@@ -3,4 +3,5 @@ data_dir: data/processed/iemocap
 cache_file: data/caches/iemocap.pkl
 model_output: iemocap.pt
 model_checkpoint: null
-prompt_template: "This person is feeling: {label}."
+max_len_seconds: 6
+prompt_template: "This person is feeling {label}."
