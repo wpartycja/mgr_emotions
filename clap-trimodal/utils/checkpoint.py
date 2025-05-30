@@ -20,8 +20,11 @@ def load_checkpoint(cfg, model, optimizer, scheduler, device):
 
 
 def save_checkpoint(
-    model, optimizer, scheduler, epoch: int, loss: float, best_val_acc: float, path: str, is_best: bool = False, use_wandb: bool = True
+    model, optimizer, scheduler, epoch: int, loss: float, best_val_acc: float, path: str, is_best: bool = False
 ):
+    
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    
     checkpoint = {
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -32,7 +35,7 @@ def save_checkpoint(
         "wandb_id": wandb.run.id
     }
     
-    path_w_epoch = f"{path.split('.')[0]}_{epoch}.pt"
+    path_w_epoch = f"{os.path.splitext(path)[0]}_{epoch}.pt" 
     torch.save(checkpoint, path_w_epoch)
     print(f"Saved checkpoint to {path_w_epoch}")
 
