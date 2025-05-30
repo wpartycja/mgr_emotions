@@ -17,7 +17,7 @@ def clip_contrastive_loss(x_embed: Tensor, y_embed: Tensor, scale: float, device
     y_embed = F.normalize(y_embed, dim=-1)
 
     # Similarity
-    sim = torch.matmul(x_embed, y_embed.T) / scale
+    sim = torch.matmul(x_embed, y_embed.T) * scale
 
     # Targets = diagonals
     targets = torch.arange(batch_size, device=device)
