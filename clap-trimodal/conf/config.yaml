@@ -1,7 +1,7 @@
 defaults:
   - model: default_model
-  - train: base
-  - dataset: iemocap
+  - train: ravdess
+  - dataset: ravdess_without_songs
   - _self_
 
 output_dir: ./hydra_configs

@@ -1,3 +1,6 @@
 text_encoder: DistilRoBERTa
 audio_encoder: DistilHuBERT
 d_proj: 128
+min_logit_scale: 1
+max_logit_scale: 100
+init_tau: 0.07
