@@ -98,10 +98,10 @@ def evaluate(
         with torch.no_grad():
             z_audio = model.audio_encoder(waveform)
             z_text = model.input_text_encoder(text_inputs)
-
+            z_avg = torch.nn.functional.normalize((z_audio + z_text) / 2, dim=-1)
+            
             sims_audio = torch.matmul(z_audio, class_embeds.T)
             sims_text = torch.matmul(z_text, class_embeds.T)
-            z_avg = torch.nn.functional.normalize((z_audio + z_text) / 2, dim=-1)
             sims_both = torch.matmul(z_avg, class_embeds.T)
 
             pred_audio = torch.argmax(sims_audio, dim=1).item()
