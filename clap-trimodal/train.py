@@ -77,7 +77,10 @@ def train(cfg: DictConfig) -> None:
     # Initialize model
     print("Initializing model...")
     model = CLAPTriModal(
-        cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token
+        cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token,
+        init_tau=cfg.model.init_tau,
+        min_logit_scale=cfg.model.min_logit_scale,
+        max_logit_scale=cfg.model.max_logit_scale,
     ).to(device)
     
     optimizer = torch.optim.AdamW([
@@ -87,8 +90,6 @@ def train(cfg: DictConfig) -> None:
         {"params": [model.logit_scale], "lr": cfg.train.lr_proj},  
     ], lr=cfg.train.lr_proj)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
-    
-    # scaler = amp.GradScaler()
     
     
     # Optionally load model from checkpoint if provided in config
@@ -103,7 +104,7 @@ def train(cfg: DictConfig) -> None:
 
     print("Starting training...")
     for epoch in range(start_epoch, cfg.train.epochs):
-        print(f"\n------ Epoch {epoch} ------\n")
+        print(f"\n------ Epoch {epoch} ------")
 
         model.train()
         total_loss, total_audio_text, total_audio_class, total_text_class = 0, 0, 0, 0
@@ -116,37 +117,31 @@ def train(cfg: DictConfig) -> None:
             text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
             class_text_inputs = {k: v.to(device) for k, v in class_text_inputs.items()}
             
-            
-            # with amp.autocast():
             out = model(audio=audio, input_text=text_inputs, class_text=class_text_inputs)
 
-            scale = out["contrastive_scale"]
             audio_embed = out["audio_embed"]
             text_embed = out["input_text_embed"]
             class_embed = out["class_text_embed"]
+            scale = out["contrastive_scale"]
+            logit_scale_raw = out["logit_scale_raw"]
 
             # Contrastive losses between all 3 modalities (pairwise)
             loss_audio_text = clip_contrastive_loss(audio_embed, text_embed, scale, device=device)
             loss_audio_class = clip_contrastive_loss(audio_embed, class_embed, scale, device=device)
             loss_text_class = clip_contrastive_loss(text_embed, class_embed, scale, device=device)
 
+            # Scalable sharpness in losses 
             # progress = epoch / cfg.train.epochs
-            # temperature = cfg.train.max_temp + (cfg.train.min_temp - cfg.train.max_temp) * progress
-            # temperature = max(cfg.train.min_temp, temperature)  # Clamp to avoid undershooting
-            temperature = cfg.train.max_temp
+            # sharpness = cfg.train.max_sharpness + (cfg.train.min_sharpness - cfg.train.max_sharpness) * progress
+            # sharpness = max(cfg.train.min_sharpness, sharpness)  # Clamp to avoid undershooting
+            
+            sharpness = cfg.train.max_sharpness
 
             # Proportional loss weights
             losses = [loss_audio_text, loss_audio_class, loss_text_class]
             loss_tensor = torch.tensor([l.item() for l in losses])
-            weights = torch.softmax(loss_tensor / temperature, dim=0)
+            weights = torch.softmax(loss_tensor / sharpness, dim=0)
             loss = sum(w * l for w, l in zip(weights, losses))
-
-            # optimizer.zero_grad()
-            # scaler.scale(loss).backward()
-            # scaler.unscale_(optimizer)
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            # scaler.step(optimizer)
-            # scaler.update()
 
             optimizer.zero_grad()
             loss.backward()
@@ -163,11 +158,16 @@ def train(cfg: DictConfig) -> None:
                 "loss/audio_text": loss_audio_text.item(),
                 "loss/audio_class": loss_audio_class.item(),
                 "loss/text_class": loss_text_class.item(),
-                "step": step
+            })
+            
+            wandb.log({
+                "logit_scale_raw": logit_scale_raw.item(),
+                "contrastive_scale": scale.item(),
+                "temperature": 1.0 / scale.item(),
             })
 
             if step % 10 == 0:
-                print(f"Step {step:03d}")
+                print(f"\nStep {step:03d}")
                 print(
                     f"Loss: {loss.item():.4f} | A↔T: {loss_audio_text.item():.4f} | A↔C: {loss_audio_class.item():.4f} | T↔C: {loss_text_class.item():.4f}"
                 )
@@ -175,7 +175,7 @@ def train(cfg: DictConfig) -> None:
                 print(
                     f"Loss weights | A↔T: {weight_audio_text:.4f} | A↔C: {weight_aduio:.4f} | T↔C: {weight_text:.4f}"
                 )
-                print(F"Temperature: {temperature}")
+                print(f"Sharpness: {sharpness:.4f} | Temperature: {1.0 / scale.item():.4f} |  Contrastive scale: {scale.item():.4f}")
             
             if start_step + 10 == step:
                     end = time()
@@ -215,15 +215,15 @@ def train(cfg: DictConfig) -> None:
             "avg_loss/avg_audio_text": loss_audio_text.item(),
             "avg_loss/avg_audio_class": loss_audio_class.item(),
             "avg_loss/avg_text_class": loss_text_class.item(),
-            "epoch": epoch,
         })
 
         wandb.log({
             "val/accuracy_audio_text": acc_both,
             "val/accuracy_audio": acc_audio,
             "val/accuracy_text": acc_text,
-            "epoch": epoch,
         })
+        
+        
             
 
     wandb.finish()
