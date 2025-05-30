@@ -64,15 +64,16 @@ class TextEncoder(nn.Module):
 class CLAPTriModal(nn.Module):
     """Tri-modal CLAP model supporting audio ↔ input text ↔ class text embeddings."""
 
-    def __init__(self, audioenc_name: str, textenc_name: str, d_proj: int, access_token: str):
+    def __init__(self, audioenc_name: str, textenc_name: str, d_proj: int, access_token: str, init_tau: float, min_logit_scale: float, max_logit_scale: float,):
         super().__init__()
         self.audio_encoder = AudioEncoder(audioenc_name, access_token, d_proj)
         self.input_text_encoder = TextEncoder(textenc_name, access_token, d_proj)
         self.class_text_encoder = TextEncoder(textenc_name, access_token, d_proj)
 
-        self.logit_scale = nn.Parameter(torch.tensor(1 / 0.07).log())
-        self.min_temp = 0.01
-        self.max_temp = 0.5
+        self.init_tau = init_tau
+        self.logit_scale = nn.Parameter(torch.tensor(1 / self.init_tau).log())
+        self.min_logit_scale = min_logit_scale
+        self.max_logit_scale = max_logit_scale
 
     def forward(
         self,
@@ -84,11 +85,12 @@ class CLAPTriModal(nn.Module):
         input_text_embed = self.input_text_encoder(input_text) if input_text is not None else None
         class_text_embed = self.class_text_encoder(class_text) if class_text is not None else None
 
-        contrastive_scale = torch.clamp(self.logit_scale.exp(), self.min_temp, self.max_temp)
+        contrastive_scale = torch.clamp(self.logit_scale.exp(), self.min_logit_scale, self.max_logit_scale)
 
         return {
             "audio_embed": audio_embed,
             "input_text_embed": input_text_embed,
             "class_text_embed": class_text_embed,
             "contrastive_scale": contrastive_scale,
+            "logit_scale_raw": self.logit_scale, 
         }
