@@ -6,6 +6,7 @@ import wandb
 from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer
 from omegaconf import DictConfig, OmegaConf
+from typing import Optional
 
 from dotenv import load_dotenv
 from evaluation import evaluate
@@ -15,7 +16,6 @@ from datascripts.dataset_loader import get_dataset, get_dataset_and_collate_fn
 from utils.checkpoint import save_checkpoint, load_checkpoint
 from model.clap_trimodal import CLAPTriModal
 
-import torch.cuda.amp as amp
 from time import time
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
@@ -24,8 +24,7 @@ load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-@hydra.main(config_path="conf", config_name="config", version_base=None)
-def train(cfg: DictConfig) -> None:
+def train(cfg: DictConfig, return_val_metric: bool = False) -> Optional[float]:
     print(OmegaConf.to_yaml(cfg))
     
     run_id = None
@@ -200,8 +199,12 @@ def train(cfg: DictConfig) -> None:
         curr_best_acc = (acc_both + acc_audio + acc_text) / 3
         
         is_best = curr_best_acc > best_val_acc
+        
         if is_best:
             best_val_acc = curr_best_acc
+            
+        if return_val_metric:
+            return best_val_acc
 
         save_checkpoint(
             model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
@@ -222,11 +225,12 @@ def train(cfg: DictConfig) -> None:
             "val/accuracy_audio": acc_audio,
             "val/accuracy_text": acc_text,
         })
-        
-        
-            
 
     wandb.finish()
 
+@hydra.main(config_path="conf", config_name="config", version_base=None)
+def run_train(cfg: DictConfig):
+    train(cfg)
+
 if __name__ == "__main__":
-    train()
+    run_train()
