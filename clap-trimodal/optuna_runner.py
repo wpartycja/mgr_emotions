@@ -1,8 +1,10 @@
 import optuna
 import hydra
 import os
+from optuna.samplers import TPESampler
+from optuna.pruners import MedianPruner
 from omegaconf import OmegaConf
-from train import train  # import your train function
+from train import train
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def optuna_runner(cfg):
@@ -17,8 +19,26 @@ def optuna_runner(cfg):
 
         return train(cfg, return_val_metric=True)
 
+    sampler = TPESampler(multivariate=True)
+    pruner = MedianPruner(n_warmup_steps=5)
+
+    study = optuna.create_study(
+        direction="maximize",
+        sampler=sampler,
+        pruner=pruner
+    )
+
+    study.optimize(objective, n_trials=50, n_jobs=4)  
+
+    # Output best result
+    print("Best trial:")
+    print(f"Value: {study.best_trial.value}")
+    print("Params:")
+    for key, value in study.best_trial.params.items():
+        print(f"{key}: {value}")
+
     study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=2)
+    study.optimize(objective, n_trials=20)
 
     print("Best trial:", study.best_trial)
 
