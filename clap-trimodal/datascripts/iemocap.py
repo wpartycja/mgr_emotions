@@ -7,27 +7,6 @@ import torch
 from omegaconf import DictConfig
 from transformers import PreTrainedTokenizer
 from datascripts.prompt_utils import get_prompt
-
-
-
-class IEMOCAPDataset(MultimodalSpeechDataset):
-    def __init__(self, data_dir: str, split: str, cache_path: str, sample_rate: int = 16000, max_length: int = 5, use_preprocessed_audio: bool = True):
-        self.label_column = "Emotion"
-        self.all_labels = [
-            "anger", 
-            "happiness", 
-            "excitement", 
-            "sadness", 
-            "frustration", 
-            "fear", 
-            "surprise", 
-            "other",
-            "neutral state"
-        ]
-        self.use_preprocessed_audio = use_preprocessed_audio
-        super().__init__(data_dir, split, cache_path, sample_rate, max_length)
-
-    import os, glob
 from collections import defaultdict, Counter
 from pathlib import Path
 from typing import List, Tuple
@@ -63,9 +42,33 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
             "fear", 
             "surprise", 
             "other",
-            "neutral state",
+            "neutral",
             "disgust"
         ]
+        
+        self.all_labels_short = [
+            "fru",
+            "ang",
+            "neu",
+            "sad",
+            "hap",
+            "exc",
+            "sur",
+            "fea",
+            "dis"
+        ]
+        
+        self.labels_dict = {
+            "fru": "frustration",
+            "ang": "anger",
+            "neu": "neutral",
+            "sad": "sadness",
+            "hap": "happiness",
+            "exc": "excited",
+            "sur": "surprise",
+            "fea": "fear",
+            "dis": "disgust"
+        }
 
 
         super().__init__(data_dir, split, cache_path, sample_rate, max_length)
@@ -87,11 +90,11 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
 
         for session in sessions:
             s_path = Path(self.data_dir) / session
-            cat_dir = s_path / "Categorical"
+            label_dir = Path(self.data_dir) / session / "Labels"
             tran_dir = s_path / "transcriptions"
             wav_dir = s_path / "wav"
 
-            utt_to_labels = self._collect_labels(cat_dir)
+            utt_to_labels = self._collect_labels(label_dir)
 
             all_not_found_transcripts = 0
 
@@ -139,35 +142,82 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
         samples.sort(key=lambda x: x[0])  # deterministic
         return samples
 
-    def _collect_labels(self, cat_dir: Path) -> dict:
-        """Return utt_id → majority_label dict for a session."""
-        tmp: defaultdict[str, List[str]] = defaultdict(list)
+    def _collect_labels(self, label_dir: Path) -> dict:
+        """Return utt_id → resolved_label based on primary line + fallback from annotator agreement."""
+        valid_labels = set(l.lower() for l in self.all_labels_short)
+        utt_to_label = {}
 
-        for cat_file in cat_dir.glob("*_e*_cat.txt"):
-            with open(cat_file) as f:
-                for line in f:
-                    if ":" not in line:
+        for label_file in label_dir.glob("*.txt"):
+            with open(label_file, encoding="utf-8") as f:
+                lines = f.readlines()
+
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+                if not line or not line.startswith("["):
+                    i += 1
+                    continue
+
+                # Parse main line
+                try:
+                    parts = line.split("\t")
+                    if len(parts) < 3:
+                        i += 1
                         continue
-                    utt_id, label_part = [p.strip() for p in line.split(":", 1)]
-                    raw = [
-                        l.replace(";", "").replace("()", "").strip().lower()
-                        for l in label_part.split(":") if l.strip() and l not in {"()", ";"}
-                    ]
-                    tmp[utt_id].extend(raw)
+                    utt_id = parts[1].strip()
+                    primary_label = parts[2].strip().lower()
+                except Exception:
+                    i += 1
+                    continue
 
-        majority: dict[str, str] = {}
-        for utt_id, lab_list in tmp.items():
-            lab_list = [l for l in lab_list if l not in {"xxx", "other", "not applicable"}]
-            if not lab_list:
-                continue
-            counts = Counter(lab_list).most_common()
-            max_cnt = counts[0][1]
-            tied    = sorted(l for l, c in counts if c == max_cnt)
-            label = tied[0]
-            if label.startswith("other"):
-                label = "other"
-            majority[utt_id] = label
-        return majority
+                resolved_label = None
+                fallback_lines = []
+                i += 1
+
+                # Collect following annotator lines until next block
+                while i < len(lines) and not lines[i].startswith("["):
+                    fallback_lines.append(lines[i].strip())
+                    i += 1
+
+                # Use primary label if valid
+                if primary_label in valid_labels:
+                    resolved_label = self.labels_dict[primary_label]
+                else:
+                    # Collect emotions from annotator lines (C-E2:, C-E3:, etc.)
+                    votes = []
+                    first_mentions = []
+
+                    for fl in fallback_lines:
+                        if fl.startswith("C-") and ":" in fl:
+                            _, emostr = fl.split(":", 1)
+                            emolist = [e.strip().strip(";").lower() for e in emostr.split(";") if e.strip()]
+                            votes.extend(emolist)
+                            if emolist:
+                                first_mentions.append(emolist[0])
+
+                    # Filter valid votes
+                    votes = [v for v in votes if v in valid_labels]
+                    first_mentions = [v for v in first_mentions if v in valid_labels]
+
+                    if votes:
+                        counts = Counter(votes).most_common()
+                        max_count = counts[0][1]
+                        tied = [l for l, c in counts if c == max_count]
+
+                        if len(tied) == 1:
+                            resolved_label = tied[0]
+                        else:
+                            # Use the one that was more often first
+                            first_choice = Counter(first_mentions).most_common()
+                            for l, _ in first_choice:
+                                if l in tied:
+                                    resolved_label = l
+                                    break
+
+                if resolved_label:
+                    utt_to_label[utt_id] = resolved_label
+
+        return utt_to_label
 
 
     def _collect_transcripts(self, tran_dir: Path) -> dict:
