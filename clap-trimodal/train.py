@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer
 from omegaconf import DictConfig, OmegaConf
 from typing import Optional
+from torch.utils.data import WeightedRandomSampler
+from collections import Counter
 
 from dotenv import load_dotenv
 from evaluation import evaluate
@@ -56,16 +58,24 @@ def train(cfg: DictConfig, return_val_metric: bool = False) -> Optional[float]:
     print("Loading dataset...")
     # Load dataset and collate function
     train_dataset, collate_fn = get_dataset_and_collate_fn(cfg, tokenizer)
+    
+    # Count class occurrences
+    label_counts = Counter(train_dataset.labels)
+    class_weights = {cls: 1.0 / count for cls, count in label_counts.items()}
+    sample_weights = [class_weights[label] for label in train_dataset.labels]
+    sampler = WeightedRandomSampler(sample_weights, num_samples=len(train_dataset), replacement=True)
+
     train_loader = DataLoader(
-        train_dataset, 
-        batch_size=cfg.train.batch_size, 
-        shuffle=True, 
-        collate_fn=collate_fn, 
-        num_workers=16, 
-        pin_memory=True, 
+        train_dataset,
+        batch_size=cfg.train.batch_size,
+        sampler=sampler,
+        collate_fn=collate_fn,
+        num_workers=16,
+        pin_memory=True,
         persistent_workers=True,
-        prefetch_factor=2,  # prefetch 2 batches per worker
-        ) 
+        prefetch_factor=2,
+    )
+
 
     val_dataset = get_dataset(cfg, tokenizer, "val")
     label_names = val_dataset.all_labels
