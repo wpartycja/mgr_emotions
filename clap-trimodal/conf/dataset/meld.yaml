@@ -1,8 +1,8 @@
 name: MELD
-data_dir: data/processed/meld
+data_dir: data/processed_pt/meld
 cache_file: data/caches/meld.pkl
 model_output: meld.pt
-model_checkpoint: checkpoints/meld_4.pt
+model_checkpoint: null
 samples_per_class: null
 max_audio_length: 6
 max_text_length: 64

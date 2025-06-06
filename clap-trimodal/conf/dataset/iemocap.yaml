@@ -1,5 +1,5 @@
 name: IEMOCAP
-data_dir: data/processed/iemocap
+data_dir: data/processed_pt/iemocap
 cache_file: data/caches/iemocap.pkl
 model_output: iemocap.pt
 model_checkpoint: null
