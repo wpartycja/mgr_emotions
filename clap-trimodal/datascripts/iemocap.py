@@ -239,10 +239,13 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
     def _apply_split(self, data: List[Tuple[str, str, str]]
                      ) -> List[Tuple[str, str, str]]:
         """Deterministic train/val/test partition."""
-        n_total  = len(data)
-        n_train  = int(self.train_rate * n_total)
-        n_val    = int(self.eval_rate  * n_total)
-        train, val, test = data[:n_train // 4], data[n_train // 4 :n_train // 4 + n_val // 4], data[n_train+n_val:]
+        n_total = len(data)
+        n_train = int(self.train_rate * n_total)
+        n_val = int(self.eval_rate * n_total)
+
+        train = data[:n_train]
+        val = data[n_train:n_train + n_val]
+        test = data[n_train + n_val:]
 
         if self.split == "train":
             return train
