@@ -85,7 +85,7 @@ def preprocess_and_save(audio_path: Path, dst_path: Path, max_len_seconds: float
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def preprocess_meld(cfg):
-    max_len_seconds = cfg.dataset.max_len_seconds
+    max_len_seconds = cfg.dataset.max_audio_length
     splits = ["train", "val", "test"]
     
     for split in splits:
@@ -104,7 +104,7 @@ def preprocess_meld(cfg):
 
 @hydra.main(config_path="../conf", config_name="config", version_base=None)
 def preprocess_iemocap(cfg):
-    max_len_seconds = cfg.dataset.max_len_seconds
+    max_len_seconds = cfg.dataset.max_audio_length
     splits = ["Session1", "Session2", "Session3", "Session4", "Session5"]
 
     for session in splits:
