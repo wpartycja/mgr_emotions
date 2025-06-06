@@ -13,12 +13,13 @@ class MultimodalSpeechDataset(Dataset, ABC):
                  data_dir: str, 
                  split: str,
                  cache_path: str,
-                 sample_rate: int = 16000, 
-                 max_length: int = 5):
+                 max_audio_length: int,
+                 sample_rate: int = 16000):
+        
         self.data_dir = data_dir
         self.split = split
         self.sample_rate = sample_rate
-        self.max_length = max_length
+        self.max_audio_length = max_audio_length
         
         cache_name = cache_path.split('.')[0]
         self.cache_path = f'{cache_name}_{split}.pkl'
@@ -50,7 +51,7 @@ class MultimodalSpeechDataset(Dataset, ABC):
                 waveform = resampler(waveform)
 
             # Clip or pad to target length
-            target_length = self.sample_rate * self.max_length
+            target_length = self.sample_rate * self.max_audio_length
             if waveform.size(1) < target_length:
                 pad_len = target_length - waveform.size(1)
                 waveform = F.pad(waveform, (0, pad_len))

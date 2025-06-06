@@ -3,5 +3,6 @@ data_dir: data/processed/iemocap
 cache_file: data/caches/iemocap.pkl
 model_output: iemocap.pt
 model_checkpoint: null
-max_len_seconds: 6
+max_audio_length: 6
+max_text_length: 64
 prompt_template: "This person is feeling {label}."

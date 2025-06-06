@@ -22,8 +22,8 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
         data_dir: str,
         split: str,
         cache_path: str,
+        max_audio_length: int,
         sample_rate: int = 16_000,
-        max_length: int = 5,
         use_preprocessed_audio: bool = True,
         train_rate: float = 0.80,
         eval_rate: float = 0.10,
@@ -71,7 +71,7 @@ class IEMOCAPDataset(MultimodalSpeechDataset):
         }
 
 
-        super().__init__(data_dir, split, cache_path, sample_rate, max_length)
+        super().__init__(data_dir, split, cache_path, max_audio_length, sample_rate)
 
 
     def _load_metadata(self) -> None:
