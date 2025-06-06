@@ -13,3 +13,4 @@ pyproject.toml
 settings.json
 cheatsheet_scripts.txt
 /mgr_utils
+/data_old
