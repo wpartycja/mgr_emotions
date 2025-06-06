@@ -17,7 +17,7 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             split=split,
             train_samples_per_class=cfg.dataset.samples_per_class,
             cache_path=cfg.dataset.cache_file,
-            max_audio_length=cfg.datasets.max_audio_length
+            max_audio_length=cfg.dataset.max_audio_length
         ) 
     elif name == "ravdess":
         return RAVDESSDataset(
@@ -25,21 +25,21 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             cache_path=cfg.dataset.cache_file,
             split=split,
             include_song=cfg.dataset.include_song,
-            max_audio_length=cfg.datasets.max_audio_length
+            max_audio_length=cfg.dataset.max_audio_length
         )
     elif name == "meld":
         return MELDDataset(
             data_dir=cfg.dataset.data_dir,
             cache_path=cfg.dataset.cache_file,
             split=split,
-            max_audio_length=cfg.datasets.max_audio_length
+            max_audio_length=cfg.dataset.max_audio_length
         )
     elif name == "iemocap":
         return IEMOCAPDataset(
             data_dir=cfg.dataset.data_dir,
             cache_path=cfg.dataset.cache_file,
             split=split,
-            max_audio_length=cfg.datasets.max_audio_length
+            max_audio_length=cfg.dataset.max_audio_length
         )
     else:
         raise ValueError(f"Unsupported dataset: {name}")

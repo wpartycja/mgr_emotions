@@ -1,5 +1,5 @@
 name: MELD
-data_dir: data/processed/meld_preprocessed
+data_dir: data/processed/meld
 cache_file: data/caches/meld.pkl
 model_output: meld.pt
 model_checkpoint: checkpoints/meld_4.pt
