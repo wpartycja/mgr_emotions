@@ -28,7 +28,7 @@ def optuna_runner(cfg):
         pruner=pruner
     )
 
-    study.optimize(objective, n_trials=50, n_jobs=4)  
+    study.optimize(objective, n_trials=100, n_jobs=1)  
 
     # Output best result
     print("Best trial:")
@@ -37,10 +37,6 @@ def optuna_runner(cfg):
     for key, value in study.best_trial.params.items():
         print(f"{key}: {value}")
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=20)
-
-    print("Best trial:", study.best_trial)
 
 if __name__ == "__main__":
     optuna_runner()
