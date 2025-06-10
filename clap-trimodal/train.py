@@ -3,6 +3,7 @@ import torch
 import hydra
 import wandb
 import optuna
+import gc
 
 from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer
@@ -242,6 +243,11 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         })
 
     wandb.finish()
+    
+    del model  # explicitly delete the model to free GPU memory
+    torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
+    gc.collect() 
     
     if return_val_metric:
         return best_val_acc
