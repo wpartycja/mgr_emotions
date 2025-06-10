@@ -2,6 +2,7 @@ import os
 import torch
 import hydra
 import wandb
+import optuna
 
 from torch.utils.data import DataLoader
 from transformers import RobertaTokenizer
@@ -26,7 +27,7 @@ load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-def train(cfg: DictConfig, return_val_metric: bool = False) -> Optional[float]:
+def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optuna.Trial] = None) -> Optional[float]:
     print(OmegaConf.to_yaml(cfg))
     
     run_id = None
@@ -208,14 +209,17 @@ def train(cfg: DictConfig, return_val_metric: bool = False) -> Optional[float]:
 
         curr_best_acc = (acc_both + acc_audio + acc_text) / 3
         
+        if trial is not None:
+            trial.report(curr_best_acc, step=epoch)
+            if trial.should_prune():
+                print(f"Trial {trial.number} pruned at epoch {epoch}")
+                raise optuna.TrialPruned()
+        
         is_best = curr_best_acc > best_val_acc
         
         if is_best:
             best_val_acc = curr_best_acc
             
-        if return_val_metric:
-            return best_val_acc
-
         save_checkpoint(
             model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
             path=f"checkpoints/{cfg.dataset.model_output.lower()}",
@@ -237,6 +241,12 @@ def train(cfg: DictConfig, return_val_metric: bool = False) -> Optional[float]:
         })
 
     wandb.finish()
+    
+    if return_val_metric:
+        return best_val_acc
+
+    
+    
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def run_train(cfg: DictConfig):

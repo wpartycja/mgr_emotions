@@ -11,10 +11,10 @@ def optuna_runner(cfg):
     def objective(trial):
         os.environ["WANDB_MODE"] = "disabled"
         
-        cfg.train.lr_proj = trial.suggest_float("lr_proj", 1e-5, 1e-2, log=True)
+        cfg.train.lr_proj = trial.suggest_float("lr_proj", 1e-5, 1e-3, log=True)
         cfg.train.lr_enc = trial.suggest_float("lr_enc", 1e-5, 1e-3, log=True)
-        cfg.model.d_proj = trial.suggest_categorical("d_proj", [128, 256, 512])
-        cfg.train.max_sharpness = trial.suggest_float("sharpness", 0.1, 5.0)
+        # cfg.model.d_proj = trial.suggest_categorical("d_proj", [128, 256, 512]) # zrób samemu
+        # cfg.train.max_sharpness = trial.suggest_float("sharpness", 0.1, 5.0) # sprawdz jak idzie adaptowalnemu i zaleznie od tego optuna
 
 
         return train(cfg, return_val_metric=True)
