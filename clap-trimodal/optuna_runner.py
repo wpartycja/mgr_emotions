@@ -17,7 +17,7 @@ def optuna_runner(cfg):
         # cfg.train.max_sharpness = trial.suggest_float("sharpness", 0.1, 5.0) # sprawdz jak idzie adaptowalnemu i zaleznie od tego optuna
 
 
-        return train(cfg, return_val_metric=True)
+        return train(cfg, return_val_metric=True, trial=trial)
 
     sampler = TPESampler(multivariate=True)
     pruner = MedianPruner(n_warmup_steps=5)

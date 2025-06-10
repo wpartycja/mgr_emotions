@@ -219,12 +219,13 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         
         if is_best:
             best_val_acc = curr_best_acc
-            
-        save_checkpoint(
-            model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
-            path=f"checkpoints/{cfg.dataset.model_output.lower()}",
-            is_best=is_best
-        )
+        
+        if not trial or best_val_acc:
+            save_checkpoint(
+                model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
+                path=f"checkpoints/{cfg.dataset.model_output.lower()}",
+                is_best=is_best
+            )
         
                     
         wandb.log({
