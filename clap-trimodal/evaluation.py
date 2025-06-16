@@ -125,11 +125,11 @@ def evaluate(
             "both": metrics_both,
         }
     else:
-        acc_audio = 100 * sum([y == p for y, p in zip(y_true, y_pred_audio)]) / len(y_true)
-        acc_text = 100 * sum([y == p for y, p in zip(y_true, y_pred_text)]) / len(y_true)
-        acc_both = 100 * sum([y == p for y, p in zip(y_true, y_pred_both)]) / len(y_true)
+        acc_audio = balanced_accuracy_score(y_true, y_pred_audio) * 100
+        acc_text = balanced_accuracy_score(y_true, y_pred_text) * 100
+        acc_both = balanced_accuracy_score(y_true, y_pred_both) * 100
 
-        print("Accuracy:")
+        print("Balanced Accuracy:")
         print(f"Audio + Text: {acc_both:.2f}% | Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n")
 
         return [acc_both, acc_audio, acc_text]
