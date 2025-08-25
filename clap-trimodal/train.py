@@ -19,6 +19,7 @@ from model_loader import load_class_embeds
 from datascripts.dataset_loader import get_dataset, get_dataset_and_collate_fn
 from utils.checkpoint import save_checkpoint, load_checkpoint
 from model.clap_trimodal import CLAPTriModal
+from utils.optuna_log import get_optuna_filename, log_epoch_results
 
 from time import time
 
@@ -28,7 +29,7 @@ load_dotenv()
 access_token = os.getenv("HF_TOKEN")
 
 
-def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optuna.Trial] = None) -> Optional[float]:
+def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optuna.Trial] = None, trial_number: int = None, run_timestamp: str = None) -> Optional[float]:
     print(OmegaConf.to_yaml(cfg))
     
     run_id = None
@@ -49,6 +50,8 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
 
     print("W&B initialized")
 
+    if trial is not None:
+        log_path = get_optuna_filename(cfg.dataset.name, run_timestamp)
 
     print("Loading tokenizer...")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -208,9 +211,12 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
         acc_both, acc_audio, acc_text = evaluate(cfg, model, tokenizer, val_dataset, class_embeds, emotion2idx, idx2emotion, device)
 
+        if trial:
+            log_epoch_results(log_path, trial_number, epoch, acc_both, acc_audio, acc_text)
+
         curr_best_acc = (acc_both + acc_audio + acc_text) / 3
         
-        if trial is not None:
+        if trial:
             trial.report(curr_best_acc, step=epoch)
             if trial.should_prune():
                 print(f"Trial {trial.number} pruned at epoch {epoch}")
@@ -221,12 +227,13 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         if is_best:
             best_val_acc = curr_best_acc
         
-        if not trial or best_val_acc:
-            save_checkpoint(
-                model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
-                path=f"checkpoints/{cfg.dataset.model_output.lower()}",
-                is_best=is_best
-            )
+        if trial is None:
+            if best_val_acc:
+                save_checkpoint(
+                    model, optimizer, scheduler, epoch, avg_loss, best_val_acc,
+                    path=f"checkpoints/{cfg.dataset.model_output.lower()}",
+                    is_best=is_best
+                )
         
                     
         wandb.log({
@@ -250,7 +257,13 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
     gc.collect() 
     
     if return_val_metric:
-        return best_val_acc
+        val_metric = {
+            "best_val_acc": best_val_acc,
+            "acc_audio_text": acc_both,
+            "acc_text": acc_text,
+            "acc_audio": acc_audio
+        }
+        return val_metric
 
     
     
