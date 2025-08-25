@@ -2,9 +2,9 @@ name: MELD
 data_dir: data/processed_pt/meld
 cache_file: data/caches/meld.pkl
 model_output: meld.pt
-model_checkpoint: null
+model_checkpoint: checkpoints/meld_best.pt
 samples_per_class: null
 max_audio_length: 6
 max_text_length: 64
 # prompt_template: "This utterance expresses {label}."
-prompt_template: "The speaker feels {label} in this dialogue."
+prompt_template: "This person is feeling {label}."
