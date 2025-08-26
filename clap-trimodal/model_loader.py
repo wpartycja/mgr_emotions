@@ -39,7 +39,7 @@ def load_class_embeds(
     idx2emotion = {idx: label for label, idx in emotion2idx.items()}
 
     label_prompts = [get_prompt(label, cfg) for label in label_names]
-    class_tokens = tokenizer(label_prompts, return_tensors="pt", padding=True, truncation=True, max_length=64)
+    class_tokens = tokenizer(label_prompts, return_tensors="pt", padding=True, truncation=True, max_length=cfg.dataset.max_text_length)
     class_tokens = {k: v.to(device) for k, v in class_tokens.items()}
     class_embeds = model.class_text_encoder(class_tokens)
     class_embeds = torch.nn.functional.normalize(class_embeds, dim=-1)

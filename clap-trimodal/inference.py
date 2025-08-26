@@ -41,7 +41,7 @@ def inference(
         waveform = get_waveform(sample).unsqueeze(0).to(device)
         transcript = get_transcript(sample)
 
-        text_inputs = tokenizer(transcript, return_tensors="pt", padding=True, truncation=True, max_length=64)
+        text_inputs = tokenizer(transcript, return_tensors="pt", padding=True, truncation=True, max_length=cfg.dataset.max_text_length)
         text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
         with torch.no_grad():

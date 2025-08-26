@@ -132,8 +132,6 @@ def ravdess_collate_fn(
     cfg: DictConfig,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
 
-    max_text_length = getattr(cfg, "max_text_length", 64)
-
     waveforms, labels, transcripts = zip(*batch)
     waveforms = torch.stack(waveforms)
 
@@ -144,7 +142,7 @@ def ravdess_collate_fn(
         return_tensors="pt",
         padding=True,
         truncation=True,
-        max_length=max_text_length,
+        max_length=cfg.dataset.max_text_length,
     )
 
     class_text_inputs = tokenizer(
@@ -152,7 +150,7 @@ def ravdess_collate_fn(
         return_tensors="pt",
         padding=True,
         truncation=True,
-        max_length=max_text_length,
+        max_length=cfg.dataset.max_text_length,
     )
 
     return waveforms, input_text_inputs, class_text_inputs

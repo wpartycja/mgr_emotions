@@ -171,6 +171,6 @@ def speech_collate_fn(
     label_names = dataset.all_labels
     label_texts = [cfg.dataset.prompt_template.format(label=label_names[y]) for y in labels]
 
-    class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=64)
+    class_text_inputs = tokenizer(label_texts, return_tensors="pt", padding=True, truncation=True, max_length=cfg.dataset.max_text_length)
 
     return audios, text_inputs, class_text_inputs

@@ -91,7 +91,7 @@ def evaluate(
             return_tensors="pt",
             padding=True,
             truncation=True,
-            max_length=64,
+            max_length=cfg.dataset.max_text_length,
         )
         text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
 
