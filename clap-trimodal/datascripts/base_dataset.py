@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
+SAMPLE_RATE = 16_000  # matching for Wav2Vec2 / HuBERT / DistilHuBERT
 
 class MultimodalSpeechDataset(Dataset, ABC):
     def __init__(self, 
@@ -14,7 +15,7 @@ class MultimodalSpeechDataset(Dataset, ABC):
                  split: str,
                  cache_path: str,
                  max_audio_length: int,
-                 sample_rate: int = 16000):
+                 sample_rate: int = SAMPLE_RATE):
         
         self.data_dir = data_dir
         self.split = split

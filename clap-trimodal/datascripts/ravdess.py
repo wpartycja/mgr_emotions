@@ -28,7 +28,6 @@ class RAVDESSDataset(MultimodalSpeechDataset):
         split: str,
         cache_path,
         max_audio_length: int,
-        sample_rate: int = 16000,
         train_rate: float = 0.8,
         eval_rate: float = 0.1,
         include_song: bool = True
@@ -51,7 +50,7 @@ class RAVDESSDataset(MultimodalSpeechDataset):
         
         self.all_labels = sorted(self.emotion_map.values())
 
-        super().__init__(data_dir, split, cache_path, max_audio_length, sample_rate)
+        super().__init__(data_dir, split, cache_path, max_audio_length)
 
     def _load_metadata(self):
         self._collect_files()

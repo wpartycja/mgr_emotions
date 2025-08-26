@@ -7,8 +7,8 @@ import hydra
 
 from pathlib import Path
 from tqdm import tqdm
+from datascripts.base_dataset import SAMPLE_RATE
 
-TARGET_SAMPLE_RATE = 16000
 SRC_ROOT = Path("data/raw/iemocap/IEMOCAP_full_release")
 DST_ROOT = Path("data/processed/iemocap")
 
@@ -33,7 +33,7 @@ def convert_mp4_to_wav_ffmpeg(SRC_ROOT, DST_ROOT):
             try:
                 (
                     ffmpeg.input(str(mp4_file))
-                    .output(str(dst_path), acodec="pcm_s16le", ac=1, ar="16000")  # mono, 16kHz
+                    .output(str(dst_path), acodec="pcm_s16le", ac=1, ar=str(SAMPLE_RATE))  # mono, 16kHz
                     .run(quiet=True, overwrite_output=True)
                 )
             except ffmpeg.Error as e:
@@ -55,7 +55,7 @@ def convert_mp4_to_wav_ffmpeg(SRC_ROOT, DST_ROOT):
 
 
 def preprocess_and_save(audio_path: Path, dst_path: Path, max_len_seconds: float):
-    target_length = TARGET_SAMPLE_RATE * max_len_seconds
+    target_length = SAMPLE_RATE * max_len_seconds
     
     try:
         waveform, sr = torchaudio.load(audio_path)
@@ -65,8 +65,8 @@ def preprocess_and_save(audio_path: Path, dst_path: Path, max_len_seconds: float
             waveform = waveform.mean(dim=0, keepdim=True)
 
         # Resample
-        if sr != TARGET_SAMPLE_RATE:
-            resampler = torchaudio.transforms.Resample(sr, TARGET_SAMPLE_RATE)
+        if sr != SAMPLE_RATE:
+            resampler = torchaudio.transforms.Resample(sr, SAMPLE_RATE)
             waveform = resampler(waveform)
 
         # Pad or trim

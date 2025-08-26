@@ -10,7 +10,7 @@ from datascripts.prompt_utils import get_prompt
 
 
 class MELDDataset(MultimodalSpeechDataset):
-    def __init__(self, data_dir: str, split: str, cache_path: str, max_audio_length, sample_rate: int = 16000, use_preprocessed_audio: bool = True):
+    def __init__(self, data_dir: str, split: str, cache_path: str, max_audio_length, use_preprocessed_audio: bool = True):
         self.label_column = "Emotion"
 
         self.all_labels = [
@@ -25,7 +25,7 @@ class MELDDataset(MultimodalSpeechDataset):
         
         self.use_preprocessed_audio = use_preprocessed_audio
 
-        super().__init__(data_dir, split, cache_path, max_audio_length, sample_rate)
+        super().__init__(data_dir, split, cache_path, max_audio_length)
 
     def _load_metadata(self):
         self.audio_paths = []

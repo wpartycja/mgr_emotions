@@ -13,8 +13,7 @@ def main():
         split="train",
         cache_path="cache/iemocap_cache.pkl",
         use_preprocessed_audio=use_preprocessed,
-        max_audio_length=6,
-        sample_rate=16000,
+        max_audio_length=8
     )
 
     print(f"Dataset size: {len(dataset)} samples")
