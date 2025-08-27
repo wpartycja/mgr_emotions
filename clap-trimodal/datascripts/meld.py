@@ -15,16 +15,25 @@ class MELDDataset(MultimodalSpeechDataset):
 
         self.all_labels = [
             "neutral",
-            "joy",
-            "surprise",
-            "sadness",
-            "anger",
-            "fear",
-            "disgust"
+            "happy",
+            "surprised",
+            "sad",
+            "angry",
+            "afraid",
+            "disgusted"
         ]
-        
-        self.use_preprocessed_audio = use_preprocessed_audio
 
+        self.label_map = {
+            "joy": "happy",
+            "sadness": "sad",
+            "anger": "angry",
+            "fear": "afraid",
+            "disgust": "disgusted",
+            "surprise": "surprised",
+            "neutral": "neutral",
+        }
+
+        self.use_preprocessed_audio = use_preprocessed_audio
         super().__init__(data_dir, split, cache_path, max_audio_length)
 
     def _load_metadata(self):
@@ -48,13 +57,14 @@ class MELDDataset(MultimodalSpeechDataset):
                 if not audio_path.exists():
                     continue
 
-                label = row[self.label_column].strip().lower()
-                if label not in self.all_labels:
+                raw_label = row[self.label_column].strip().lower()
+                mapped_label = self.label_map.get(raw_label)
+                if mapped_label not in self.all_labels:
                     continue
 
                 self.audio_paths.append(str(audio_path))
                 self.transcripts.append(row["Utterance"].strip())
-                self.labels.append(label)
+                self.labels.append(mapped_label)
 
 
 def meld_collate_fn(
