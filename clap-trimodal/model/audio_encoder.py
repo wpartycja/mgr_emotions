@@ -49,9 +49,9 @@ class DistilHuBERT(nn.Module):
 class WavLM(nn.Module):
     """Wrapper for microsoft/wavlm-base model that outputs pooled embeddings."""
 
-    def __init__(self, model_name: str = "microsoft/wavlm-base"):
+    def __init__(self, access_token : str, model_name: str = "microsoft/wavlm-base"):
         super().__init__()
-        self.model = WavLMModel.from_pretrained(model_name)
+        self.model = WavLMModel.from_pretrained(model_name, token=access_token)
         self.output_dim = self.model.config.hidden_size
 
     def forward(self, input_waveform, attention_mask=None):
@@ -63,9 +63,9 @@ class WavLM(nn.Module):
 class HuBERT(nn.Module):
     """Wrapper for facebook/hubert-base-ls960 model that outputs pooled embeddings."""
 
-    def __init__(self, model_name: str = "facebook/hubert-base-ls960"):
+    def __init__(self, access_token: str, model_name: str = "facebook/hubert-base-ls960"):
         super().__init__()
-        self.model = HubertModel.from_pretrained(model_name)
+        self.model = HubertModel.from_pretrained(model_name, token=access_token)
         self.output_dim = self.model.config.hidden_size
 
     def forward(self, input_waveform, attention_mask=None):
