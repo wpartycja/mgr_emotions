@@ -36,7 +36,7 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
     if cfg.dataset.get("model_checkpoint"):
         checkpoint_path = cfg.dataset.model_checkpoint
         print(f"Checking for W&B run ID in checkpoint: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path)
+        checkpoint = torch.load(checkpoint_path, weights_only=False)
         run_id = checkpoint.get("wandb_id", None)
     
     
@@ -251,7 +251,7 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
 
     wandb.finish()
     
-    del model  # explicitly delete the model to free GPU memory
+    del model 
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
     gc.collect() 
