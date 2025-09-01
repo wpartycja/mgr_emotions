@@ -7,17 +7,22 @@ from omegaconf import DictConfig
 from typing import Dict, List, Union
 from torch import Tensor
 from torch.utils.data import Dataset
+from datetime import datetime
 
-from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, precision_recall_fscore_support, confusion_matrix, ConfusionMatrixDisplay
 from dotenv import load_dotenv
 from model_loader import load_trained_model, load_class_embeds
 from datascripts.dataset_loader import get_dataset
 from datascripts.prompt_utils import get_prompt
+import matplotlib.pyplot as plt
+import numpy as np
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 load_dotenv()
 access_token = os.getenv("HF_TOKEN")
+
+IMG_SAVE_DIR = 'png'
 
 
 def print_class_descriptions(cfg: DictConfig, emotion2idx: Dict[str, int]) -> None:
@@ -28,18 +33,36 @@ def print_class_descriptions(cfg: DictConfig, emotion2idx: Dict[str, int]) -> No
 
 
 def compute_metrics(y_true, y_pred):
-    acc = accuracy_score(y_true, y_pred) * 100
-    bal_acc = balanced_accuracy_score(y_true, y_pred) * 100
+    # weighted accuracy
+    wa = accuracy_score(y_true, y_pred) * 100  
+    
+    # unweighted accuracy
+    ua = balanced_accuracy_score(y_true, y_pred) * 100  
+    
     precision, recall, f1, _ = precision_recall_fscore_support(
         y_true, y_pred, average='macro', zero_division=0
     )
     return {
-        "accuracy": acc,
-        "balanced_accuracy": bal_acc,
+        "weighted_accuracy": wa,
+        "unweighted_accuracy": ua,
         "precision": precision * 100,
         "recall": recall * 100,
         "f1": f1 * 100,
     }
+
+
+def plot_confusion_matrix(y_true, y_pred, labels, title: str, save_path: str):
+    cm = confusion_matrix(y_true, y_pred, labels=range(len(labels)))
+    
+    cm_normalized = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+    cm_percent = np.round(cm_normalized * 100, 1)  # percentages with 1 decimal
+    
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm_percent, display_labels=labels)
+    disp.plot(cmap="RdPu", xticks_rotation=45, values_format=".1f")  # show decimals
+    plt.title(title + " (in %)")
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
 
 
 def print_metrics(metrics_audio, metrics_text, metrics_both):
@@ -51,8 +74,8 @@ def print_metrics(metrics_audio, metrics_text, metrics_both):
             f"Text only: {metrics_text[key]:.2f}%\n"
         )
 
-    print_line("Accuracy", "accuracy")
-    print_line("Balanced Accuracy", "balanced_accuracy")
+    print_line("Weighted Accuracy (WA)", "weighted_accuracy")
+    print_line("Unweighted Accuracy (UA)", "unweighted_accuracy")
     print_line("Macro Precision", "precision")
     print_line("Macro Recall", "recall")
     print_line("Macro F1-score", "f1")
@@ -118,6 +141,21 @@ def evaluate(
         metrics_both = compute_metrics(y_true, y_pred_both)
 
         print_metrics(metrics_audio, metrics_text, metrics_both)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        plot_confusion_matrix(
+            y_true, y_pred_audio, list(emotion2idx.keys()), 
+            "Audio only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_audio.png"
+        )
+        plot_confusion_matrix(
+            y_true, y_pred_text, list(emotion2idx.keys()), 
+            "Text only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_text.png"
+        )
+        plot_confusion_matrix(
+            y_true, y_pred_both, list(emotion2idx.keys()), 
+            "Audio + Text", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_both.png"
+        )
 
         return {
             "audio": metrics_audio,
