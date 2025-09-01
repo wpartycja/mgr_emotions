@@ -21,10 +21,10 @@ def load_trained_model(cfg: DictConfig) -> Tuple[CLAPTriModal, PreTrainedTokeniz
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
 
     model = CLAPTriModal(
-        cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token
+        cfg.model.audio_encoder, cfg.model.text_encoder, d_proj=cfg.model.d_proj, access_token=access_token, init_tau=cfg.model.init_tau, min_logit_scale=cfg.model.min_logit_scale, max_logit_scale=cfg.model.max_logit_scale
     ).to(device)
 
-    checkpoint = torch.load(cfg.dataset.model_checkpoint)
+    checkpoint = torch.load(cfg.dataset.model_checkpoint, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
 

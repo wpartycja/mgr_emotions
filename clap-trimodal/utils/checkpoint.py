@@ -7,7 +7,7 @@ def load_checkpoint(cfg, model, optimizer, scheduler, device):
     model_path = cfg.dataset.model_checkpoint
     print(f"Loading model from checkpoint: {model_path}")
     
-    checkpoint = torch.load(model_path, map_location=device)
+    checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
     scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
