@@ -19,8 +19,8 @@ def optuna_runner(cfg):
     def objective(trial):
         os.environ["WANDB_MODE"] = "disabled"
 
-        cfg.train.lr_proj = trial.suggest_float("lr_proj", 1e-5, 1e-3, log=True)
-        cfg.train.lr_enc = trial.suggest_float("lr_enc", 1e-5, 1e-3, log=True)
+        cfg.train.lr_proj = trial.suggest_float("lr_proj", 1e-5, 1e-2, log=True)
+        cfg.train.lr_enc  = trial.suggest_float("lr_enc",  1e-6, 1e-3, log=True)
         # cfg.model.d_proj = trial.suggest_categorical("d_proj", [128, 256, 512])
         # cfg.train.max_sharpness = trial.suggest_float("sharpness", 0.1, 5.0)
 
@@ -37,7 +37,7 @@ def optuna_runner(cfg):
         return val_metric["best_val_acc"]
 
     sampler = TPESampler(multivariate=True)
-    pruner = MedianPruner(n_warmup_steps=5)
+    pruner = MedianPruner(n_warmup_steps=3)
 
     study = optuna.create_study(
         direction="maximize",
@@ -45,7 +45,7 @@ def optuna_runner(cfg):
         pruner=pruner
     )
 
-    study.optimize(objective, n_trials=3, n_jobs=1)
+    study.optimize(objective, n_trials=20, n_jobs=1)
 
     print(f"\nOptuna run finished. Best trial: {study.best_trial.number}")
     print(f"Best accuracy mean (bimodal + text + audio)/3 : {study.best_trial.value}")
