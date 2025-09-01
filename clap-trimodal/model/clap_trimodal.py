@@ -12,7 +12,7 @@ from model.text_encoder import get_text_encoder
 class Projection(nn.Module):
     """Two-layer projection block with GELU, residual connection, dropout, and layer normalization."""
 
-    def __init__(self, d_in: int, d_out: int, p: float = 0.2):
+    def __init__(self, d_in: int, d_out: int, p: float = 0.5):
         super().__init__()
         self.linear1 = nn.Linear(d_in, d_out, bias=False)
         self.linear2 = nn.Linear(d_out, d_out, bias=False)
