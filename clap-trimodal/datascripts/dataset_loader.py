@@ -6,6 +6,7 @@ from datascripts.ravdess import RAVDESSDataset, ravdess_collate_fn
 from datascripts.meld import MELDDataset, meld_collate_fn
 from datascripts.iemocap import IEMOCAPDataset, iemocap_collate_fn
 from datascripts.iemocap4cls import IEMOCAP4ClsDataset
+from datascripts.meld4cls import MELD4ClsDataset
 
 
 
@@ -49,6 +50,13 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             split=split,
             max_audio_length=cfg.dataset.max_audio_length
         )
+    elif name == 'meld4cls':
+        return MELD4ClsDataset(
+            data_dir=cfg.dataset.data_dir,
+            cache_path=cfg.dataset.cache_file,
+            split=split,
+            max_audio_length=cfg.dataset.max_audio_length
+        )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
@@ -61,7 +69,7 @@ def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, 
         collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg, dataset)
     elif name == "ravdess":
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
-    elif name == "meld":
+    elif name == "meld" or "meld4cls":
         collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)
     elif name == "iemocap" or "iemocap4cls":
         collate_fn = lambda batch: iemocap_collate_fn(batch, tokenizer, cfg)
