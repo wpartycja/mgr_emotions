@@ -4,6 +4,7 @@ from collections import Counter
 from datascripts.iemocap import IEMOCAPDataset
 from datascripts.iemocap4cls import IEMOCAP4ClsDataset
 from datascripts.meld import MELDDataset
+from datascripts.meld4cls import MELD4ClsDataset
 
 
 def count_labels(dataset_cls, data_dir, cache_path, splits, use_preprocessed=True, max_audio_length=8):
@@ -67,6 +68,18 @@ def main():
     for label, count in sorted(counts_meld.items()):
         print(f"{label}: {count}")
     print(f"Total: {sum(counts_meld.values())}\n")
+    
+    # MELD (4 classes)
+    split_sizes_4cls, counts_4cls = count_labels(
+        MELD4ClsDataset, data_dir_meld, "cache/meld4cls_cache.pkl", ["train", "val", "test"], use_preprocessed
+    )
+
+    print("MELD (4 classes)")
+    print("Split sizes:", split_sizes_4cls)
+    print("\nUtterance count per class:")
+    for label, count in sorted(counts_4cls.items()):
+        print(f"{label}: {count}")
+    print(f"Total: {sum(counts_4cls.values())}\n")
 
 
 if __name__ == "__main__":
