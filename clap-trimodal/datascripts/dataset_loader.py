@@ -7,6 +7,7 @@ from datascripts.meld import MELDDataset, meld_collate_fn
 from datascripts.iemocap import IEMOCAPDataset, iemocap_collate_fn
 from datascripts.iemocap4cls import IEMOCAP4ClsDataset
 from datascripts.meld4cls import MELD4ClsDataset
+from datascripts.soup_dataset import MELD_IEMOCAP_4ClsDataset
 
 
 
@@ -57,6 +58,14 @@ def get_dataset(cfg: DictConfig, tokenizer: PreTrainedTokenizer, split: str):
             split=split,
             max_audio_length=cfg.dataset.max_audio_length
         )
+    elif name == "soup":
+        return MELD_IEMOCAP_4ClsDataset(
+            data_dirs=cfg.dataset.data_dirs,
+            cache_path=cfg.dataset.cache_file,
+            split=split,
+            max_audio_length=cfg.dataset.max_audio_length,
+            seed=cfg.dataset.get("seed", None),
+        )
     else:
         raise ValueError(f"Unsupported dataset: {name}")
 
@@ -73,7 +82,39 @@ def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, 
         collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)
     elif name == "iemocap" or "iemocap4cls":
         collate_fn = lambda batch: iemocap_collate_fn(batch, tokenizer, cfg)
+    elif name == "soup":
+        collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)
     else:
         raise ValueError(f"No collate_fn for dataset: {name}")
 
     return dataset, collate_fn
+
+
+# idea
+# def default_collate_fn(
+#     batch: List[Tuple[torch.Tensor, str, str]],
+#     tokenizer: PreTrainedTokenizer,
+#     cfg: DictConfig
+# ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+#     waveforms, labels, transcripts = zip(*batch)
+#     waveforms = torch.stack(waveforms)
+
+#     class_texts = [get_prompt(label, cfg) for label in labels]
+
+#     input_text_inputs = tokenizer(
+#         list(transcripts),
+#         return_tensors="pt",
+#         padding=True,
+#         truncation=True,
+#         max_length=cfg.dataset.max_text_length,
+#     )
+
+#     class_text_inputs = tokenizer(
+#         class_texts,
+#         return_tensors="pt",
+#         padding=True,
+#         truncation=True,
+#         max_length=cfg.dataset.max_text_length,
+#     )
+
+#     return waveforms, input_text_inputs, class_text_inputs
