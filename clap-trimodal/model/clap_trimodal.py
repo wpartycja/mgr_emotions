@@ -12,7 +12,7 @@ from model.text_encoder import get_text_encoder
 class Projection(nn.Module):
     """Two-layer projection block with GELU, residual connection, dropout, and layer normalization."""
 
-    def __init__(self, d_in: int, d_out: int, p: float = 0.5):
+    def __init__(self, d_in: int, d_out: int, p: float):
         super().__init__()
         self.linear1 = nn.Linear(d_in, d_out, bias=False)
         self.linear2 = nn.Linear(d_out, d_out, bias=False)
@@ -33,11 +33,12 @@ class AudioEncoder(nn.Module):
         audioenc_name: str,
         access_token: str,
         d_out: int,
+        dropout_rate: float
     ):
         super().__init__()
         self.base = get_audio_encoder(audioenc_name)(access_token)
         d_in = self.base.output_dim
-        self.projection = Projection(d_in, d_out)
+        self.projection = Projection(d_in, d_out, dropout_rate)
 
     def forward(self, x: Tensor) -> Tensor:
         out_dict = self.base(x)
@@ -49,10 +50,10 @@ class AudioEncoder(nn.Module):
 class TextEncoder(nn.Module):
     """Wrapper for text transformer with projection and normalization."""
 
-    def __init__(self, textenc_name: str, access_token: str, d_out: int, transformer_embed_dim: int = 768):
+    def __init__(self, textenc_name: str, access_token: str, d_out: int, dropout_rate: float, transformer_embed_dim: int = 768):
         super().__init__()
         self.base = get_text_encoder(textenc_name, access_token)
-        self.projection = Projection(transformer_embed_dim, d_out)
+        self.projection = Projection(transformer_embed_dim, d_out, dropout_rate)
 
     def forward(self, x: Tensor) -> Tensor:
         output = self.base(**x)
@@ -64,11 +65,11 @@ class TextEncoder(nn.Module):
 class CLAPTriModal(nn.Module):
     """Tri-modal CLAP model supporting audio ↔ input text ↔ class text embeddings."""
 
-    def __init__(self, audioenc_name: str, textenc_name: str, d_proj: int, access_token: str, init_tau: float, min_logit_scale: float, max_logit_scale: float,):
+    def __init__(self, audioenc_name: str, textenc_name: str, d_proj: int, access_token: str, init_tau: float, min_logit_scale: float, max_logit_scale: float, dropout_rate: float):
         super().__init__()
-        self.audio_encoder = AudioEncoder(audioenc_name, access_token, d_proj)
-        self.input_text_encoder = TextEncoder(textenc_name, access_token, d_proj)
-        self.class_text_encoder = TextEncoder(textenc_name, access_token, d_proj)
+        self.audio_encoder = AudioEncoder(audioenc_name, access_token, d_proj, dropout_rate)
+        self.input_text_encoder = TextEncoder(textenc_name, access_token, d_proj, dropout_rate)
+        self.class_text_encoder = TextEncoder(textenc_name, access_token, d_proj, dropout_rate)
 
         self.init_tau = init_tau
         self.logit_scale = nn.Parameter(torch.tensor(1 / self.init_tau).log())

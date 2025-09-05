@@ -284,4 +284,4 @@ def iemocap_collate_fn(
         max_length=cfg.dataset.max_text_length,
     )
 
-    return waveforms, input_text_inputs, class_text_inputs
+    return waveforms, input_text_inputs, class_text_inputs, list(labels)

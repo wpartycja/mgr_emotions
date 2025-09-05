@@ -1,7 +1,7 @@
 import torch
 import wandb
 import os
-
+from train_utils import build_optimizer_from_trainable
 
 def load_checkpoint(cfg, model, optimizer, scheduler, device):
     model_path = cfg.dataset.model_checkpoint
@@ -9,17 +9,30 @@ def load_checkpoint(cfg, model, optimizer, scheduler, device):
     
     checkpoint = torch.load(model_path, map_location=device, weights_only=False)
     model.load_state_dict(checkpoint["model_state_dict"])
-    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-    scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+
+    same_context = (checkpoint['modality'] == cfg.train.modality) and (checkpoint['dataset'] == cfg.dataset.name)
+
     start_epoch = checkpoint.get("epoch", 0)
     best_val_acc = checkpoint.get("best_val_acc")
-    
-    print(f"Resumed from epoch {start_epoch}, loss {checkpoint.get('loss', 'N/A')}")
+
+
+    if same_context:
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        print(f"Resumed optimizer and scheduler (modality={checkpoint['modality']}, dataset={checkpoint['dataset']}) "
+                f"from epoch {start_epoch}, loss {checkpoint['loss']}")
+    else:
+        print(f"Context changed,\nPrevious modality: {checkpoint['modality']} changed for {cfg.train.modality}\n" \
+              f"Previous dataset: {checkpoint['dataset']} changed for {cfg.dataset.name}\n" \
+               "Rebuilding new optimizer and scheduler")
+        optimizer = build_optimizer_from_trainable(model, cfg)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg.train.epochs)
+        
     
     return model, optimizer, scheduler, start_epoch, best_val_acc
 
 
-def save_checkpoint(
+def save_checkpoint(cfg, 
     model, optimizer, scheduler, epoch: int, loss: float, best_val_acc: float, path: str, is_best: bool = False
 ):
     
@@ -32,7 +45,9 @@ def save_checkpoint(
         "epoch": epoch,
         "loss": loss,
         "best_val_acc": best_val_acc,
-        "wandb_id": wandb.run.id
+        "wandb_id": wandb.run.id,
+        "modality": cfg.train.modality,
+        "dataset": cfg.dataset.name,
     }
     
     path_w_epoch = f"{os.path.splitext(path)[0]}_{epoch}.pt" 
@@ -44,3 +59,4 @@ def save_checkpoint(
         torch.save(checkpoint, best_path)
         print(f"Best model updated: {best_path}")
         wandb.save(best_path)
+    
