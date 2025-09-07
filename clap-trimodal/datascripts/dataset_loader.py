@@ -78,9 +78,9 @@ def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, 
         collate_fn = lambda batch: speech_collate_fn(batch, tokenizer, cfg, dataset)
     elif name == "ravdess":
         collate_fn = lambda batch: ravdess_collate_fn(batch, tokenizer, cfg)
-    elif name == "meld4cls":
+    elif name in ["meld", "meld4cls"]:
         collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)
-    elif name == "iemocap4cls":
+    elif name in ["iemocap", "iemocap4cls"]:
         collate_fn = lambda batch: iemocap_collate_fn(batch, tokenizer, cfg)
     elif name == "soup":
         collate_fn = lambda batch: meld_collate_fn(batch, tokenizer, cfg)

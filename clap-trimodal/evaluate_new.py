@@ -185,18 +185,11 @@ def evaluate(
         def _p(m, key): return f"{m[key]:.2f}%" if m else "N/A"
 
         if use_both:
-            print("Weighted Accuracy (WA):")
-            print(f"Audio + Text: {_p(metrics_both,'weighted_accuracy')} | "
-                f"Audio only: {_p(metrics_audio,'weighted_accuracy')} | "
-                f"Text only: {_p(metrics_text,'weighted_accuracy')}\n")
-            # ... the rest similar for UA/Precision/Recall/F1 ...
+            print_metrics(metrics_audio, metrics_text, metrics_both)
         elif use_text and not use_audio:
-            print("Weighted Accuracy (WA):")
-            print(f"Text only: {_p(metrics_text,'weighted_accuracy')}\n")
-            # ... optionally print UA/Prec/Rec/F1 for text only ...
+            print_metrics(None, metrics_text, None)
         elif use_audio and not use_text:
-            print("Weighted Accuracy (WA):")
-            print(f"Audio only: {_p(metrics_audio,'weighted_accuracy')}\n")
+            print_metrics(metrics_audio, None, None)
 
         # Confusion matrices (only what exists)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

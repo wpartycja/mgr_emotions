@@ -95,6 +95,8 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         sampler = None
         shuffle = True
 
+    drop_last = False if cfg.train.modality == "trimodal" else True
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.train.batch_size,
@@ -105,7 +107,7 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
         pin_memory=True,
         persistent_workers=True,
         prefetch_factor=2,
-        drop_last=True
+        drop_last=drop_last
     )
 
     label_names = getattr(val_dataset, "all_labels", None)
