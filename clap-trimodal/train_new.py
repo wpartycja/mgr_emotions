@@ -142,7 +142,7 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
     
 
     fixed_class_embeds = None
-    if cfg.train.modality in ["text_only", "audio_only"]:
+    if cfg.train.modality in ["text_only", "audio_only", "audio_text_unaligned"]:
         for p in model.class_text_encoder.parameters():
             p.requires_grad = False
         model.class_text_encoder.eval()
@@ -176,6 +176,8 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
                 text_inputs = None
                 class_text_inputs = None
             elif cfg.train.modality == "audio_text":
+                class_text_inputs = None
+            elif cfg.train.modality == "audio_text_unaligned":
                 class_text_inputs = None
             # trimodal → keep all three
            
@@ -235,6 +237,26 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
                 losses = [loss_text_class]
                 names  = ["text_class"]
 
+            elif cfg.train.modality == "audio_text_unaligned":
+                # both encoders produce embeddings; classify each against fixed class anchors
+                # audio branch
+                loss_audio_class = None
+                if audio_embed is not None:
+                    logits_audio = (audio_embed @ fixed_class_embeds.T) * scale
+                    loss_audio_class = torch.nn.functional.cross_entropy(logits_audio, targets)
+
+                # text branch
+                loss_text_class = None
+                if text_embed is not None:
+                    logits_text = (text_embed @ fixed_class_embeds.T) * scale
+                    loss_text_class = torch.nn.functional.cross_entropy(logits_text, targets)
+
+                # collect
+                losses, names = [], []
+                if loss_audio_class is not None:
+                    losses.append(loss_audio_class); names.append("audio_class")
+                if loss_text_class is not None:
+                    losses.append(loss_text_class); names.append("text_class")
 
             # Weight losses if multiple
             if len(losses) > 1:
@@ -312,6 +334,8 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
             curr_best_acc = acc_text
         elif cfg.train.modality == "audio_only":
             curr_best_acc = acc_audio
+        elif cfg.train.modality == "audio_text_unaligned":
+            curr_best_acc = (acc_audio + acc_text) / 2.0
         else:
             curr_best_acc = float('-inf') 
         
@@ -354,8 +378,15 @@ def train(cfg: DictConfig, return_val_metric: bool = False, trial: Optional[optu
             })
         elif cfg.train.modality == "text_only":
             wandb.log({"val/accuracy_text": acc_text})
+        #elif audio_only unchanged
         elif cfg.train.modality == "audio_only":
             wandb.log({"val/accuracy_audio": acc_audio})
+        elif cfg.train.modality == "audio_text_unaligned":
+            # no aligned "both" metric; log the two heads
+            wandb.log({
+                "val/accuracy_audio": acc_audio,
+                "val/accuracy_text": acc_text,
+            })
 
     wandb.finish()
     

@@ -47,7 +47,6 @@ def compute_metrics(y_true, y_pred):
         "weighted_accuracy": wa,
         "unweighted_accuracy": ua,
         "precision": precision * 100,
-        "recall": recall * 100,
         "f1": f1 * 100,
     }
 
@@ -69,16 +68,19 @@ def plot_confusion_matrix(y_true, y_pred, labels, title: str, save_path: str):
 def print_metrics(metrics_audio, metrics_text, metrics_both):
     def print_line(label, key):
         print(f"{label}:")
+        audio_text = metrics_both[key] if metrics_both is not None else float("nan")
+        audio = metrics_audio[key] if metrics_audio is not None else float("nan")
+        text = metrics_text[key] if metrics_text is not None else float("nan")
+
         print(
-            f"Audio + Text: {metrics_both[key]:.2f}% | "
-            f"Audio only: {metrics_audio[key]:.2f}% | "
-            f"Text only: {metrics_text[key]:.2f}%\n"
+            f"Audio + Text: {audio_text:.2f}% | "
+            f"Audio only: {audio:.2f}% | "
+            f"Text only: {text:.2f}%\n"
         )
 
     print_line("Weighted Accuracy (WA)", "weighted_accuracy")
     print_line("Unweighted Accuracy (UA)", "unweighted_accuracy")
     print_line("Macro Precision", "precision")
-    print_line("Macro Recall", "recall")
     print_line("Macro F1-score", "f1")
 
 def evaluate(
@@ -118,9 +120,10 @@ def evaluate(
         class_embeds = F.normalize(class_embeds.to(device), dim=-1)
 
     # ---- STEP 1: decide which modalities are active (based on your train config) ----
-    use_audio = cfg.train.modality in ["trimodal", "audio_text", "audio_only"]
-    use_text  = cfg.train.modality in ["trimodal", "audio_text", "text_only"]
-    use_both  = use_audio and use_text
+    use_audio = cfg.train.modality in ["trimodal", "audio_text", "audio_only", "audio_text_unaligned"]
+    use_text  = cfg.train.modality in ["trimodal", "audio_text", "text_only", "audio_text_unaligned"]
+    combine_modalities = cfg.train.modality in ["trimodal", "audio_text"]
+    use_both = (use_audio and use_text and combine_modalities)
 
     y_true, y_pred_audio, y_pred_text, y_pred_both = [], [], [], []
 
@@ -162,18 +165,11 @@ def evaluate(
                 y_pred_text.append(pred_text)
 
             # "both": if both available, average; else fall back to whichever exists
-            if use_audio and use_text:
+            if use_both:
                 z_avg = F.normalize((z_audio + z_text) / 2, dim=-1)
                 sims_both = torch.matmul(z_avg, class_embeds.T)
                 pred_both = torch.argmax(sims_both, dim=1).item()
-            elif use_text and not use_audio:
-                pred_both = y_pred_text[-1]
-            elif use_audio and not use_text:
-                pred_both = y_pred_audio[-1]
-            else:
-                # Should not happen, but guard anyway
-                pred_both = 0
-            y_pred_both.append(pred_both)
+                y_pred_both.append(pred_both)
 
     # ---- metrics & plots ----
     if extended_metrics:
@@ -186,6 +182,8 @@ def evaluate(
 
         if use_both:
             print_metrics(metrics_audio, metrics_text, metrics_both)
+        elif use_text and use_audio:
+            print_metrics(metrics_audio, metrics_text, None)
         elif use_text and not use_audio:
             print_metrics(None, metrics_text, None)
         elif use_audio and not use_text:
@@ -209,8 +207,7 @@ def evaluate(
 
         return {"audio": metrics_audio, "text": metrics_text, "both": metrics_both if use_both else None}
     else:
-        if use_both:
-            acc_both = balanced_accuracy_score(y_true, y_pred_both) * 100
+        acc_both  = balanced_accuracy_score(y_true, y_pred_both) * 100 if use_both else float("nan")
         acc_audio = balanced_accuracy_score(y_true, y_pred_audio) * 100 if use_audio else float("nan")
         acc_text  = balanced_accuracy_score(y_true, y_pred_text)  * 100 if use_text  else float("nan")
 
@@ -219,6 +216,10 @@ def evaluate(
                 f"{(acc_audio if use_audio else float('nan')):.2f}% | Text only: "
                 f"{(acc_text if use_text else float('nan')):.2f}%\n")
             return [acc_both, acc_audio, acc_text]
+        elif use_text and use_audio:
+            # unaligned dual-head (audio_text_unaligned): no fused score
+            print(f"Balanced Accuracy: Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n")
+            return [float("nan"), acc_audio, acc_text]
         elif use_text and not use_audio:
             print(f"Balanced Accuracy: Text only: {acc_text:.2f}%\n")
             return [float("nan"), float("nan"), acc_text]

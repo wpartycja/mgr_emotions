@@ -38,6 +38,11 @@ def freeze_for_modality(model, modality: str):
         for p in model.audio_encoder.parameters():
             p.requires_grad = False
         model.audio_encoder.eval()
+    
+    elif modality == "audio_text_unaligned":
+        model.input_text_encoder.train()
+        model.audio_encoder.train()
+        model.class_text_encoder.train()
 
     else:
         raise ValueError(f"Unknown modality: {modality}")
