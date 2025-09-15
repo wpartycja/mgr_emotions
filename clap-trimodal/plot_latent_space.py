@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 from datascripts.dataset_loader import get_dataset_and_collate_fn
 from model.clap_trimodal import CLAPTriModal
-from utils.checkpoint import load_checkpoint
+from checkpoint import load_checkpoint
 from model_loader import load_trained_model
 from omegaconf import DictConfig
 import hydra
@@ -54,6 +54,7 @@ def extract_embeddings(cfg, modality, split="val", max_batches=20):
         init_tau=cfg.model.init_tau,
         min_logit_scale=cfg.model.min_logit_scale,
         max_logit_scale=cfg.model.max_logit_scale,
+        dropout_rate=0
     ).to(device)
     model.eval()
 
@@ -63,7 +64,7 @@ def extract_embeddings(cfg, modality, split="val", max_batches=20):
     embeddings, labels = [], []
 
     with torch.no_grad():
-        for i, (audio, text_inputs, class_text_inputs) in enumerate(loader):
+        for i, (audio, text_inputs, class_text_inputs, _) in enumerate(loader):
             if i >= max_batches:  # limit for speed
                 break
 

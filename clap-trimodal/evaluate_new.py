@@ -195,15 +195,17 @@ def evaluate(
 
         os.makedirs(IMG_SAVE_DIR, exist_ok=True)
 
+        save_name = cfg.dataset.model_checkpoint.split('/')[1][:-2]
+
         if use_audio:
             plot_confusion_matrix(y_true, y_pred_audio, labels_order,
-                                "Audio only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_audio.png")
+                                "Audio only", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_audio_{cfg.dataset.name}.png")
         if use_text:
             plot_confusion_matrix(y_true, y_pred_text, labels_order,
-                                "Text only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_text.png")
+                                "Text only", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_text_{cfg.dataset.name}.png")
         if use_both:
             plot_confusion_matrix(y_true, y_pred_both, labels_order,
-                                "Audio + Text", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_both.png")
+                                "Audio + Text", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_both_{cfg.dataset.name}.png")
 
         return {"audio": metrics_audio, "text": metrics_text, "both": metrics_both if use_both else None}
     else:
