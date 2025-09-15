@@ -21,16 +21,3 @@ def get_prompt(label: str, cfg: DictConfig, **kwargs) -> str:
         return template.format(label=label, **kwargs)
 
     raise ValueError("No prompt source defined: set either `label2text` or `prompt_template` in config.")
-
-
-# def get_prompt(emotion, cfg):
-#     """Enhanced prompts for better emotion separation"""
-#     enhanced_prompts = {
-#         'happy': "This person sounds extremely joyful, cheerful, and excited with bright positive energy",
-#         'sad': "This person sounds deeply sorrowful, melancholic, and depressed with heavy negative emotion", 
-#         'angry': "This person sounds furious, hostile, and aggressive with intense burning rage",
-#         'neutral': "This person sounds completely calm, flat, and emotionally neutral with no expression"
-#     }
-    
-#     # Use enhanced prompt if available, otherwise fallback to original
-#     return enhanced_prompts.get(emotion.lower(), f"This audio expresses {emotion}")

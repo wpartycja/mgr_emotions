@@ -66,33 +66,3 @@ def get_dataset_and_collate_fn(cfg: DictConfig, tokenizer: PreTrainedTokenizer, 
         raise ValueError(f"No collate_fn for dataset: {name}")
 
     return dataset, collate_fn
-
-
-# idea
-# def default_collate_fn(
-#     batch: List[Tuple[torch.Tensor, str, str]],
-#     tokenizer: PreTrainedTokenizer,
-#     cfg: DictConfig
-# ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
-#     waveforms, labels, transcripts = zip(*batch)
-#     waveforms = torch.stack(waveforms)
-
-#     class_texts = [get_prompt(label, cfg) for label in labels]
-
-#     input_text_inputs = tokenizer(
-#         list(transcripts),
-#         return_tensors="pt",
-#         padding=True,
-#         truncation=True,
-#         max_length=cfg.dataset.max_text_length,
-#     )
-
-#     class_text_inputs = tokenizer(
-#         class_texts,
-#         return_tensors="pt",
-#         padding=True,
-#         truncation=True,
-#         max_length=cfg.dataset.max_text_length,
-#     )
-
-#     return waveforms, input_text_inputs, class_text_inputs

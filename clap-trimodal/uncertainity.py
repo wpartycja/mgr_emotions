@@ -145,7 +145,6 @@ def plot_reliability_with_histogram(
     colors = ["magenta", "dodgerblue"]
 
 
-    # --- Left: Fixed bins (ECE/MCE) ---
     ax1.plot([0, 1], [0, 1], "--", color="black", linewidth=1)
     for (head, (bin_edges, bin_acc, bin_conf, bin_cnt)), color in zip(stats_fixed.items(), colors):
         mask = bin_cnt > 0
@@ -156,13 +155,11 @@ def plot_reliability_with_histogram(
     ax1.set_title("Fixed bins (ECE/MCE)")
     ax1.legend()
 
-    # --- Middle: Histogram (sample distribution across bins) ---
     first_head = list(stats_fixed.keys())[0]
     edges_ref, _, _, bin_cnt_ref = stats_fixed[first_head]
     centers = 0.5 * (edges_ref[:-1] + edges_ref[1:])
     bin_width = (edges_ref[1] - edges_ref[0]) * 0.9
 
-    # sum counts from all heads
     bin_cnt_total = np.zeros_like(bin_cnt_ref, dtype=float)
     for h in stats_fixed:
         _, _, _, bin_cnt = stats_fixed[h]
@@ -172,7 +169,7 @@ def plot_reliability_with_histogram(
         centers,
         bin_cnt_total,
         width=bin_width,
-        color="orchid",      # single color
+        color="orchid",      
         alpha=0.8,
         align="center",
     )
@@ -182,7 +179,6 @@ def plot_reliability_with_histogram(
     ax2.set_ylabel("Count")
     ax2.set_title("Distribution")
 
-    # --- Right: Adaptive bins (ACE) ---
     ax3.plot([0, 1], [0, 1], "--", color="black", linewidth=1)
     for (head, (bin_edges, bin_acc, bin_conf, bin_cnt)), color in zip(stats_adaptive.items(), colors):
         mask = bin_cnt > 0
@@ -334,7 +330,6 @@ def main(cfg: DictConfig) -> None:
         stats_fixed[head]    = metrics["bin_stats_fixed"]
         stats_adaptive[head] = metrics["bin_stats_adaptive"]
 
-    # combined plot (fixed vs adaptive)
     multi_title = f"Uncertainty (Fixed vs Adaptive bins + Distribution)"
     multi_fname = f"{ds_name}_uncertainty_fixed_adaptive_hist_{split}"
     multi_save = os.path.join(img_dir, f"{timestamp}_{multi_fname}.png")

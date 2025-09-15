@@ -16,6 +16,7 @@ from datascripts.dataset_loader import get_dataset
 from datascripts.prompt_utils import get_prompt
 import matplotlib.pyplot as plt
 import numpy as np
+import torch.nn.functional as F
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -33,10 +34,7 @@ def print_class_descriptions(cfg: DictConfig, emotion2idx: Dict[str, int]) -> No
 
 
 def compute_metrics(y_true, y_pred):
-    # weighted accuracy
     wa = accuracy_score(y_true, y_pred) * 100  
-    
-    # unweighted accuracy
     ua = balanced_accuracy_score(y_true, y_pred) * 100  
     
     precision, recall, f1, _ = precision_recall_fscore_support(
@@ -46,7 +44,6 @@ def compute_metrics(y_true, y_pred):
         "weighted_accuracy": wa,
         "unweighted_accuracy": ua,
         "precision": precision * 100,
-        "recall": recall * 100,
         "f1": f1 * 100,
     }
 
@@ -68,16 +65,19 @@ def plot_confusion_matrix(y_true, y_pred, labels, title: str, save_path: str):
 def print_metrics(metrics_audio, metrics_text, metrics_both):
     def print_line(label, key):
         print(f"{label}:")
+        audio_text = metrics_both[key] if metrics_both is not None else float("nan")
+        audio = metrics_audio[key] if metrics_audio is not None else float("nan")
+        text = metrics_text[key] if metrics_text is not None else float("nan")
+
         print(
-            f"Audio + Text: {metrics_both[key]:.2f}% | "
-            f"Audio only: {metrics_audio[key]:.2f}% | "
-            f"Text only: {metrics_text[key]:.2f}%\n"
+            f"Audio + Text: {audio_text:.2f}% | "
+            f"Audio only: {audio:.2f}% | "
+            f"Text only: {text:.2f}%\n"
         )
 
     print_line("Weighted Accuracy (WA)", "weighted_accuracy")
     print_line("Unweighted Accuracy (UA)", "unweighted_accuracy")
     print_line("Macro Precision", "precision")
-    print_line("Macro Recall", "recall")
     print_line("Macro F1-score", "f1")
 
 def evaluate(
@@ -95,95 +95,148 @@ def evaluate(
     get_label = lambda x: x[1]
     get_transcript = lambda x: x[2]
 
-    y_true = []
-    y_pred_audio = []
-    y_pred_text = []
-    y_pred_both = []
+    if class_embeds is None:
+        num_classes = len(emotion2idx)
+        label_vocab = [None] * num_classes
+        for lbl, i in emotion2idx.items():
+            label_vocab[i] = lbl
 
-    for i in range(len(test_dataset)):
-        sample = test_dataset[i]
-        label = get_label(sample)
-        label_idx = torch.tensor([emotion2idx[label]]).to(device)
-        y_true.append(label_idx.item())
+        prompts = [get_prompt(lbl, cfg) for lbl in label_vocab]
+        with torch.inference_mode():
+            tok = tokenizer(
+                prompts, return_tensors="pt", padding=True, truncation=True,
+                max_length=cfg.dataset.max_text_length
+            ).to(device)
+            class_embeds = model.class_text_encoder(tok)   # (K, d), already normalized by your encoder
+            class_embeds = F.normalize(class_embeds, dim=-1)
 
-        waveform = get_waveform(sample).unsqueeze(0).to(device)
-        transcript = get_transcript(sample)
+    else:
+        class_embeds = F.normalize(class_embeds.to(device), dim=-1)
 
-        text_inputs = tokenizer(
-            transcript,
-            return_tensors="pt",
-            padding=True,
-            truncation=True,
-            max_length=cfg.dataset.max_text_length,
-        )
-        text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
+    use_audio = cfg.train.modality in ["trimodal", "audio_text", "audio_only", "audio_text_unaligned"]
+    use_text  = cfg.train.modality in ["trimodal", "audio_text", "text_only", "audio_text_unaligned"]
+    combine_modalities = cfg.train.modality in ["trimodal", "audio_text"]
+    use_both = (use_audio and use_text and combine_modalities)
 
-        with torch.no_grad():
-            z_audio = model.audio_encoder(waveform)
-            z_text = model.input_text_encoder(text_inputs)
-            z_avg = torch.nn.functional.normalize((z_audio + z_text) / 2, dim=-1)
-            
-            sims_audio = torch.matmul(z_audio, class_embeds.T)
-            sims_text = torch.matmul(z_text, class_embeds.T)
-            sims_both = torch.matmul(z_avg, class_embeds.T)
+    y_true, y_pred_audio, y_pred_text, y_pred_both = [], [], [], []
 
-            pred_audio = torch.argmax(sims_audio, dim=1).item()
-            pred_text = torch.argmax(sims_text, dim=1).item()
-            pred_both = torch.argmax(sims_both, dim=1).item()
+    model.eval()
+    with torch.inference_mode():
+        for i in range(len(test_dataset)):
+            sample = test_dataset[i]
+            label_str = get_label(sample)
+            y_true.append(emotion2idx[label_str])
 
-            y_pred_audio.append(pred_audio)
-            y_pred_text.append(pred_text)
-            y_pred_both.append(pred_both)
+            z_audio = None
+            z_text  = None
+
+            if use_audio:
+                waveform = get_waveform(sample).unsqueeze(0).to(device)
+                z_audio = model.audio_encoder(waveform)  # normalized by your model
+
+            if use_text:
+                transcript = get_transcript(sample)
+                text_inputs = tokenizer(
+                    transcript,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=cfg.dataset.max_text_length,
+                )
+                text_inputs = {k: v.to(device) for k, v in text_inputs.items()}
+                z_text = model.input_text_encoder(text_inputs)  # normalized
+
+            if use_audio:
+                sims_audio = torch.matmul(z_audio, class_embeds.T)
+                pred_audio = torch.argmax(sims_audio, dim=1).item()
+                y_pred_audio.append(pred_audio)
+
+            if use_text:
+                sims_text = torch.matmul(z_text, class_embeds.T)
+                pred_text = torch.argmax(sims_text, dim=1).item()
+                y_pred_text.append(pred_text)
+
+            if use_both:
+                z_avg = F.normalize((z_audio + z_text) / 2, dim=-1)
+                sims_both = torch.matmul(z_avg, class_embeds.T)
+                pred_both = torch.argmax(sims_both, dim=1).item()
+                y_pred_both.append(pred_both)
 
     if extended_metrics:
-        metrics_audio = compute_metrics(y_true, y_pred_audio)
-        metrics_text = compute_metrics(y_true, y_pred_text)
-        metrics_both = compute_metrics(y_true, y_pred_both)
+        metrics_audio = compute_metrics(y_true, y_pred_audio) if use_audio else None
+        metrics_text  = compute_metrics(y_true, y_pred_text)  if use_text  else None
+        metrics_both  = compute_metrics(y_true, y_pred_both)  if use_both  else None
 
-        print_metrics(metrics_audio, metrics_text, metrics_both)
+        def _p(m, key): return f"{m[key]:.2f}%" if m else "N/A"
+
+        if use_both:
+            print_metrics(metrics_audio, metrics_text, metrics_both)
+        elif use_text and use_audio:
+            print_metrics(metrics_audio, metrics_text, None)
+        elif use_text and not use_audio:
+            print_metrics(None, metrics_text, None)
+        elif use_audio and not use_text:
+            print_metrics(metrics_audio, None, None)
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        labels_order = [lbl for lbl, _i in sorted(emotion2idx.items(), key=lambda x: x[1])]
 
-        plot_confusion_matrix(
-            y_true, y_pred_audio, list(emotion2idx.keys()), 
-            "Audio only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_audio.png"
-        )
-        plot_confusion_matrix(
-            y_true, y_pred_text, list(emotion2idx.keys()), 
-            "Text only", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_text.png"
-        )
-        plot_confusion_matrix(
-            y_true, y_pred_both, list(emotion2idx.keys()), 
-            "Audio + Text", f"{IMG_SAVE_DIR}/{timestamp}_{cfg.dataset.name}_confusion_both.png"
-        )
+        os.makedirs(IMG_SAVE_DIR, exist_ok=True)
 
-        return {
-            "audio": metrics_audio,
-            "text": metrics_text,
-            "both": metrics_both,
-        }
+        save_name = cfg.dataset.model_checkpoint.split('/')[1][:-2]
+
+        if use_audio:
+            plot_confusion_matrix(y_true, y_pred_audio, labels_order,
+                                "Audio only", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_audio_{cfg.dataset.name}.png")
+        if use_text:
+            plot_confusion_matrix(y_true, y_pred_text, labels_order,
+                                "Text only", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_text_{cfg.dataset.name}.png")
+        if use_both:
+            plot_confusion_matrix(y_true, y_pred_both, labels_order,
+                                "Audio + Text", f"{IMG_SAVE_DIR}/{timestamp}_{save_name}_{cfg.train.modality}_confusion_both_{cfg.dataset.name}.png")
+
+        return {"audio": metrics_audio, "text": metrics_text, "both": metrics_both if use_both else None}
     else:
-        acc_audio = balanced_accuracy_score(y_true, y_pred_audio) * 100
-        acc_text = balanced_accuracy_score(y_true, y_pred_text) * 100
-        acc_both = balanced_accuracy_score(y_true, y_pred_both) * 100
+        acc_both  = balanced_accuracy_score(y_true, y_pred_both) * 100 if use_both else float("nan")
+        acc_audio = balanced_accuracy_score(y_true, y_pred_audio) * 100 if use_audio else float("nan")
+        acc_text  = balanced_accuracy_score(y_true, y_pred_text)  * 100 if use_text  else float("nan")
 
-        print("Balanced Accuracy:")
-        print(f"Audio + Text: {acc_both:.2f}% | Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n")
-
-        return [acc_both, acc_audio, acc_text]
+        if use_both:
+            print(f"Balanced Accuracy: Audio + Text: {acc_both:.2f}% | Audio only: "
+                f"{(acc_audio if use_audio else float('nan')):.2f}% | Text only: "
+                f"{(acc_text if use_text else float('nan')):.2f}%\n")
+            return [acc_both, acc_audio, acc_text]
+        elif use_text and use_audio:
+            # unaligned dual-head (audio_text_unaligned): no fused score
+            print(f"Balanced Accuracy: Audio only: {acc_audio:.2f}% | Text only: {acc_text:.2f}%\n")
+            return [float("nan"), acc_audio, acc_text]
+        elif use_text and not use_audio:
+            print(f"Balanced Accuracy: Text only: {acc_text:.2f}%\n")
+            return [float("nan"), float("nan"), acc_text]
+        else:  # audio-only
+            print(f"Balanced Accuracy: Audio only: {acc_audio:.2f}%\n")
+            return [float("nan"), acc_audio, float("nan")]
 
 
 @hydra.main(config_path="conf", config_name="config", version_base=None)
 def run_evaluation(cfg: DictConfig) -> None:
     tokenizer = RobertaTokenizer.from_pretrained("roberta-base", token=access_token)
     test_dataset = get_dataset(cfg, tokenizer, "test")
-    label_names = test_dataset.all_labels
+
+    if hasattr(test_dataset, "all_labels") and test_dataset.all_labels:
+        label_vocab = list(test_dataset.all_labels)
+    else:
+        label_vocab = sorted(set(getattr(test_dataset, "labels", [])))
+
+    emotion2idx = {lbl: i for i, lbl in enumerate(label_vocab)}
+    idx2emotion = {i: lbl for i, lbl in enumerate(label_vocab)}
+
     model, tokenizer, device = load_trained_model(cfg)
-    class_embeds, emotion2idx, idx2emotion = load_class_embeds(cfg, model, tokenizer, label_names, device)
 
     print_class_descriptions(cfg, emotion2idx)
     print(f"\nEvaluating on {len(test_dataset)} samples from {cfg.dataset.name.lower()}...")
-    evaluate(cfg, model, tokenizer, test_dataset, class_embeds, emotion2idx, idx2emotion, device, True)
+
+    evaluate(cfg, model, tokenizer, test_dataset, None, emotion2idx, idx2emotion, device, True)
 
 
 if __name__ == "__main__":
